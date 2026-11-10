@@ -1,0 +1,56 @@
+// 产生 PNG：dot -Tpng docs/architecture.dot -o docs/architecture.png
+// 颜色 = 进度：绿 完成 / 黄 进行中 / 灰 未开始 / 虚线 封存
+digraph architecture {
+  graph [rankdir=TB, fontname="Noto Sans CJK TC", fontsize=13, nodesep=0.35, ranksep=0.45, pad=0.3,
+         label="remote_ctrl_agent 整体架构（颜色 = 进度：绿 完成 / 黄 进行中 / 灰 未开始 / 虚线 封存）",
+         labelloc=t];
+  node  [shape=box, style="rounded,filled", fontname="Noto Sans CJK TC", fontsize=11, fillcolor="#e9ecef", color="#6c757d"];
+  edge  [fontname="Noto Sans CJK TC", fontsize=10, color="#495057"];
+
+  phone     [label="iPhone\nClaude app", fillcolor="#cfe2ff", color="#0d6efd"];
+  anthropic [label="Anthropic\n（中继，账号登录 + 两步验证）", fillcolor="#cfe2ff", color="#0d6efd"];
+  phone -> anthropic [dir=both, label=" HTTPS"];
+
+  subgraph cluster_pc {
+    label="你的电脑（Ubuntu / macOS）"; style="rounded"; color="#adb5bd";
+
+    boot   [label="M5  开机自动启动\nsystemd（Ubuntu）/ launchd（Mac）"];
+    start  [label="M5  scripts/start-remote.sh\n① 跑 preflight  ② 防休眠  ③ 移除 API key 变量"];
+    pre    [label="M2  preflight/\n启动前检查清单 ✅ ⚠️ ❌\n（有 ❌ 就不启动）", fillcolor="#fff3cd", color="#cc9a06"];
+    cfg    [label="本机设定档 config.json\n可信账号 orgId、工作目录", shape=note, fillcolor="#fff3cd", color="#cc9a06"];
+    sleep  [label="M5  防休眠\nsystemd-inhibit / caffeinate"];
+
+    subgraph cluster_session {
+      label="tmux 里一直跑的远端 session"; style="rounded,dashed"; color="#adb5bd";
+      claude [label="M2  claude --remote-control\n（手机连线已在 Ubuntu 测试成功）", fillcolor="#fff3cd", color="#cc9a06"];
+      settings [label="M3  deploy/remote-settings.json\npermissions：allow / ask / deny（由 render_settings.py 产生）", shape=note, fillcolor="#fff3cd", color="#cc9a06"];
+      ckpt   [label="M4  UserPromptSubmit hook\ncheckpoint.py → git 快照"];
+      guard  [label="M3  PreToolUse hook\nremote_guard.py + policy.py\nAllow / Ask（手机批准）/ Deny\n（代码完成，待手机实测）", fillcolor="#fff3cd", color="#cc9a06"];
+      audit  [label="M4  audit log\n每次工具调用的记录", shape=note];
+    }
+
+    workdir [label="工作目录（git repo）\nClaude 读写档案的地方", shape=folder, fillcolor="#ffffff"];
+    restore [label="M4  scripts/restore.sh\n回到电脑前还原"];
+  }
+
+  anthropic -> claude [dir=both, label=" 电脑只往外连\n 不开端口"];
+  boot -> start;
+  start -> pre [label=" 先检查"];
+  pre -> cfg [dir=both, style=dashed];
+  start -> sleep;
+  start -> claude [label=" 通过才启动"];
+  settings -> claude [style=dashed, label=" 载入"];
+  claude -> ckpt [label=" 每个 prompt"];
+  claude -> guard [label=" 每次工具调用"];
+  guard -> audit;
+  guard -> workdir [label=" 放行后才执行"];
+  ckpt -> workdir [style=dashed];
+  restore -> workdir;
+
+  // 旁支
+  m0 [label="M0  outline.md / milestone.md / error.md\n规划文件", shape=note, fillcolor="#d4edda", color="#198754"];
+  m1 [label="M1  Telegram echo bot\nlegacy/telegram/", style="rounded,dashed", fillcolor="#ffffff"];
+  m6 [label="M6  v0.2\n多项目多 session、健康检查、log 轮替"];
+  m1 -> phone [style=dotted, arrowhead=none, label=" 改用 Claude app"];
+  m6 -> claude [style=dotted, arrowhead=none];
+}
