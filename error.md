@@ -16,6 +16,27 @@
 
 ---
 
+### [2026-11-10] M4 code review：还原点与纪录的 10 个 bug
+- **阶段**：M4
+- **平台**：都有
+- **现象 → 修法**：
+  1. hook 10 秒超时没生效：`TimeoutError` 是 `OSError` 的子类别，被读档的 `except OSError` 吞掉，可能拖过 Claude Code 30 秒上限而**完全略过安全检查** → 超时时直接 `os._exit(2)`，不用 raise
+  2. 大 repo 拍还原点会被中途砍掉（hook 上限 60 秒 = 单一 git 指令上限）→ 所有 git 指令共用 45 秒期限，hook 上限改 120 秒，超时会提醒 Claude 并写纪录
+  3. 还原点用当地时间命名排序，日光节约 / 改时钟会删错 → 改用 UTC
+  4. 已有 50 个时还原到最旧的，它会被清掉 → 清理时保护还原目标
+  5. 还原会盖掉 `.gitignore` 排除的档案却没备份 → 还原前强制把这些档案存进「还原前」快照
+  6. 非 UTF-8 档案让 `diff --full` 当掉、git 超时跳 traceback → surrogateescape 解码、输出用替代字元、超时转成 GitError
+  7. 纪录里有无法编码的字元时写入出错，变成误拒 → 纪录写入吞掉所有错误
+  8. preflight 把 repo 的子资料夹判成「不是 git repo」还叫你 `git init` → 改用和还原点相同的 `git rev-parse --show-toplevel`
+  9. `restore.py log` 没看 `REMOTE_CTRL_LOG_DIR` → 统一由 `platform_utils.log_dir()` 决定位置
+  10. 还原、`diff --full` 扫描两次工作目录 → 只扫一次共用
+- **原因**：只测了「正常情况」；没想到例外的继承关系（TimeoutError ⊂ OSError）、多个时限之间的关系、时间与编码这类环境差异
+- **教训**：
+  - 安全相关的超时要用「一定会结束」的方式（`os._exit`），不要用可能被吞掉的例外
+  - 外层时限一定要大于内层所有步骤加起来
+  - 排序、命名用 UTC；读外部输出要处理编码
+  - 每个 review 发现都补一个测试（这次新增 10 个，全部 264 个）
+
 ### [2026-11-10] M3 第 2 次 code review：修完又找到 10 个绕过 → 改策略
 - **阶段**：M3
 - **平台**：都有（第 8 项只在 macOS）

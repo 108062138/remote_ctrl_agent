@@ -26,23 +26,27 @@ from preflight import config_store  # noqa: E402
 
 TEMPLATE = ROOT / "deploy" / "remote-settings.template.json"
 GUARD = ROOT / "hooks" / "remote_guard.py"
+CHECKPOINT = ROOT / "hooks" / "checkpoint.py"
 SETTINGS_NAME = "remote-settings.json"
+# 范本里的占位字 -> 要执行的 hook 程式
+PLACEHOLDERS = {"{{HOOK_COMMAND}}": GUARD, "{{CHECKPOINT_COMMAND}}": CHECKPOINT}
 
 
 def settings_path() -> Path:
     return pu.config_dir() / SETTINGS_NAME
 
 
-def hook_command(python: str, guard: Path) -> str:
-    return f"{shlex.quote(python)} {shlex.quote(str(guard))}"
+def hook_command(python: str, script: Path) -> str:
+    return f"{shlex.quote(python)} {shlex.quote(str(script))}"
 
 
 def render(python: str) -> dict:
-    text = TEMPLATE.read_text()
-    data = json.loads(text)
-    for group in data["hooks"]["PreToolUse"]:
-        for h in group["hooks"]:
-            h["command"] = h["command"].replace("{{HOOK_COMMAND}}", hook_command(python, GUARD))
+    data = json.loads(TEMPLATE.read_text())
+    for groups in data["hooks"].values():
+        for group in groups:
+            for h in group["hooks"]:
+                for placeholder, script in PLACEHOLDERS.items():
+                    h["command"] = h["command"].replace(placeholder, hook_command(python, script))
     return data
 
 
@@ -54,7 +58,8 @@ def main() -> int:
         return 1
     path = config_store.save_local_config(render(sys.executable), settings_path())
     print(f"✅ 已产生 {path}")
-    print(f"   hook：{hook_command(sys.executable, GUARD)}")
+    print(f"   安全层 hook：{hook_command(sys.executable, GUARD)}")
+    print(f"   还原点 hook：{hook_command(sys.executable, CHECKPOINT)}")
     return 0
 
 

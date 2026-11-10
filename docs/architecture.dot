@@ -24,13 +24,13 @@ digraph architecture {
       label="tmux 里一直跑的远端 session"; style="rounded,dashed"; color="#adb5bd";
       claude [label="M2  claude --remote-control\n（手机连线已在 Ubuntu 测试成功）", fillcolor="#fff3cd", color="#cc9a06"];
       settings [label="M3  deploy/remote-settings.json\npermissions：allow / ask / deny（由 render_settings.py 产生）", shape=note, fillcolor="#fff3cd", color="#cc9a06"];
-      ckpt   [label="M4  UserPromptSubmit hook\ncheckpoint.py → git 快照"];
+      ckpt   [label="M4  UserPromptSubmit hook\ncheckpoint.py → git 还原点", fillcolor="#fff3cd", color="#cc9a06"];
       guard  [label="M3  PreToolUse hook\nremote_guard.py + policy/\nAllow / Ask（手机批准）/ Deny\n（代码完成，待手机实测）", fillcolor="#fff3cd", color="#cc9a06"];
-      audit  [label="M4  audit log\n每次工具调用的记录", shape=note];
+      audit  [label="M4  audit log\n每个 prompt 和工具调用的纪录", shape=note, fillcolor="#fff3cd", color="#cc9a06"];
     }
 
     workdir [label="工作目录（git repo）\nClaude 读写档案的地方", shape=folder, fillcolor="#ffffff"];
-    restore [label="M4  scripts/restore.sh\n回到电脑前还原"];
+    restore [label="M4  scripts/restore.py\nlog / list / diff / restore", fillcolor="#fff3cd", color="#cc9a06"];
   }
 
   anthropic -> claude [dir=both, label=" 电脑只往外连\n 不开端口"];

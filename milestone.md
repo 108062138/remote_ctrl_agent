@@ -20,7 +20,7 @@
 | 1 | Telegram echo bot + 白名单 | 🗄 封存 |
 | 2 | Remote Control 跑通（Ubuntu + Mac）+ preflight 检查 | 🟡 Ubuntu 完成，Mac 待测 |
 | 3 | 安全层：settings + policy + hook | 🟡 代码与 review 收尾，待手机实测 |
-| 4 | Audit log + git checkpoint | ⬜ |
+| 4 | Audit log + git checkpoint | 🟡 代码与 review 完成，待手机实测 |
 | 5 | 一直在线 + 安全等级：启动脚本、systemd / launchd、防休眠 | ⬜ |
 | 6 | v0.2 功能 | ⬜ |
 
@@ -164,13 +164,35 @@ python3 scripts/preflight.py                     # 两台都要全部没有 ❌
 - [ ] 电脑：一般的 `claude`（没带 `--settings`）→ 不受影响
 - [ ] Mac：`render_settings.py` + preflight 通过
 
-## M4 Audit log + git checkpoint ⬜
+## M4 Audit log + git checkpoint 🟡（2026-11-10 代码与 review 完成，待手机实测）
 **目标**：知道远端做过什么，出问题时能还原。
-**会多加**：`hooks/checkpoint.py`、`scripts/restore.sh`，`remote_guard.py` 写 audit log（JSONL）
-**学到的概念**：`UserPromptSubmit` hook、`git stash create` / `git update-ref`（存快照但不动工作区）
+
+**多加了什么**
+- `hooks/gitsnap.py`：还原点的核心。用**暂时的 index** 把整个工作目录（含未追踪档、排除 `.gitignore`）做成 commit，存到 `refs/remote-ctrl/checkpoints/<时间>`；工作目录、repo 的 index、分支、HEAD 都不变。最多保留 50 个
+  - 原本规划用 `git stash create`，但它不含未追踪的新档案，所以改用暂时 index
+- `hooks/checkpoint.py`：`UserPromptSubmit` hook，手机每送一个 prompt 就拍一个还原点。失败时**不挡 prompt**（不然人在外面会完全不能用），但会提醒 Claude「这次没有还原点」
+- `hooks/audit.py`：动作纪录（JSONL，权限 600）。记录每个 prompt 和每次工具调用（工具、参数、允许 / 询问 / 拒绝、原因）；**不记录写入的档案内容**，只记长度
+  - 位置：Ubuntu `~/.local/state/remote-ctrl/audit.jsonl`、Mac `~/Library/Logs/remote-ctrl/audit.jsonl`
+- `scripts/restore.py`：回到电脑前用。`log`（动作纪录）、`list`、`diff`、`restore`。还原前会先把现在存成新还原点，可以反悔
+- 安全层加保护：远端不能删还原点（`refs/remote-ctrl`、`git update-ref`、`GIT_INDEX_FILE`）、不能改动作纪录
+- `remote-settings` 多一个 `UserPromptSubmit` hook；preflight 检查两个 hook 都在（**M4 之前产生的设定要重跑 `render_settings.py`**，这台 Ubuntu 已重跑）
+- `tests/test_checkpoint.py`：14 个测试（不动档案、含未追踪、排除 ignore、空 repo、子资料夹、还原与反悔、hook、纪录不含内容、远端删不掉）。全部 255 个
+
+**学到的概念**：`UserPromptSubmit` hook、`GIT_INDEX_FILE` 暂时 index、`write-tree` / `commit-tree` / `update-ref`、不在分支上的 commit
+
+**code review 后的修正（2026-11-10）**：10 个 bug 全修（细节见 error.md），重点：
+- 安全层的 10 秒超时之前没真的生效，现在一定会拒绝（这也修掉 M3 第 2 次 review 的同一项）
+- 还原点：共用时间期限、UTC 命名、还原目标不会被清掉、`.gitignore` 档案还原前会备份
+- `restore.py`：怪异编码不当掉、`log` 看正确的位置、只扫描一次
+- preflight：repo 的子资料夹也算 git repo
+- 测试共 264 个；这台 Ubuntu 已重跑 `render_settings.py`（hook 时限改 120 秒）
+
 **验证**
-- [ ] 每个 prompt 前都有一个 checkpoint，`scripts/restore.sh` 列得出来、还原得回去
-- [ ] audit log 记录每次工具调用：时间、工具、参数、允许 / 拒绝
+- [x] 单元测试全过（全部 264 个）
+- [x] 实际跑：hook 建立还原点 → 改坏档案、新增档案 → `restore.py diff` 看得到 → `restore` 还原成功
+- [x] code review：10 个全修，每个都有测试
+- [ ] 手机：送 prompt 后 `restore.py list` 看得到新还原点；`restore.py log` 看得到每个动作
+- [ ] Mac：重跑 `render_settings.py`，preflight 通过
 
 ## M5 一直在线 + 安全等级 ⬜
 **目标**：开机就自动启动远端 session，挂了会重启，电脑不会休眠；启动前先设定这次的安全等级和作用范围。

@@ -489,8 +489,10 @@ def _judge_git(args, ctx, piped, depth):
         return deny("会删掉还原用的记录")
     if sub == "gc" and any(f.startswith("--prune") for f in rest):
         return deny("会删掉还原用的物件")
-    if sub == "update-ref" and "-d" in flags:
-        return deny("删除参照")
+    if sub == "update-ref":
+        return deny("直接改参照（可能删掉还原点）")
+    if sub not in GIT_READ and any("remote-ctrl" in a for a in rest):
+        return deny("不能动还原点（refs/remote-ctrl）")
     if sub == "config":
         if {"--get", "--list", "-l", "--get-regexp", "--get-all"} & flags:
             return worst(decisions, Decision(ALLOW, "只读"))

@@ -38,6 +38,21 @@ def config_dir() -> Path:
     return base / "remote-ctrl"
 
 
+def log_dir(env: dict[str, str] | None = None) -> Path:
+    """动作纪录（audit log）放这里，不在 repo 里。远端 session 不能修改（在安全层的受保护清单）。
+
+    环境变量 REMOTE_CTRL_LOG_DIR 可以改位置（hook 和 restore.py log 都用这个函式，位置一定一致）。
+    """
+    env = os.environ if env is None else env
+    if env.get("REMOTE_CTRL_LOG_DIR"):
+        return Path(env["REMOTE_CTRL_LOG_DIR"])
+    if IS_MAC:
+        return Path.home() / "Library" / "Logs" / "remote-ctrl"
+    xdg = os.environ.get("XDG_STATE_HOME", "")
+    base = Path(xdg) if xdg and Path(xdg).is_absolute() else Path.home() / ".local" / "state"
+    return base / "remote-ctrl"
+
+
 def extra_bin_dirs() -> list[Path]:
     """Places tools often live that a short PATH (launchd, systemd) may miss."""
     dirs = [Path.home() / ".local" / "bin"]

@@ -42,20 +42,30 @@ def build_output(decision) -> dict:
 
 def handle(payload: dict, env: dict[str, str]) -> tuple[int, str, str]:
     """回传 (exit code, stdout, stderr)。拆出来方便测试。"""
+    import audit
     import platform_utils as pu
     import policy
 
     cwd = payload.get("cwd") or os.getcwd()
     work_dir = env.get("REMOTE_CTRL_WORK_DIR") or env.get("CLAUDE_PROJECT_DIR") or cwd
-    ctx = policy.make_context(work_dir, cwd=cwd, config_dir=pu.config_dir())
-    decision = policy.decide(payload.get("tool_name", ""), payload.get("tool_input") or {}, ctx)
+    log_dir = pu.log_dir(env)
+    ctx = policy.make_context(work_dir, cwd=cwd, config_dir=pu.config_dir(), log_dir=log_dir)
+    tool_name = payload.get("tool_name", "")
+    tool_input = payload.get("tool_input") or {}
+    decision = policy.decide(tool_name, tool_input, ctx)
+    audit.write(log_dir, {"event": "tool", "session": payload.get("session_id"), "tool": tool_name,
+                          "input": audit.summarize_input(tool_name, tool_input),
+                          "decision": decision.name, "reason": decision.reason, "cwd": cwd})
     if decision.level == policy.DENY:
         return EXIT_BLOCK, "", f"⛔ [remote-guard] 已拒绝：{decision.reason}\n这是远端模式的安全规则，请换个做法，或等使用者回到电脑前处理。"
     return 0, json.dumps(build_output(decision), ensure_ascii=False), ""
 
 
 def _on_timeout(signum, frame):
-    raise TimeoutError(f"判断超过 {TIME_LIMIT} 秒")
+    # 不能用 raise：TimeoutError 是 OSError 的子类别，会被读档的 except OSError 吞掉。
+    # 直接结束程式，确保一定是「拒绝」。
+    os.write(2, f"⛔ [remote-guard] 判断超过 {TIME_LIMIT} 秒，为了安全先拒绝。\n".encode())
+    os._exit(EXIT_BLOCK)
 
 
 def main() -> int:

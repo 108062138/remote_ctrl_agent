@@ -40,7 +40,7 @@
   +------------------------------------|----------------------------------+
                                        | only if allowed
                                        v
-                         WORK_DIR (your git repo)  <-- [M4] scripts/restore.sh
+                         WORK_DIR (your git repo)  <-- [M4] scripts/restore.py
 
   [M0] outline.md / milestone.md / error.md        (planning docs)
   [M6] multi-project sessions, health check, log rotation  (on top of all above)
@@ -69,7 +69,7 @@
 | M1 Telegram | 手机旁边的虚线（已被 Claude app 取代） | `legacy/telegram/` | 🗄 封存 |
 | M2 跑通 + preflight | `claude --remote-control`、`preflight/`、`config.json` | `preflight/`、`scripts/preflight.py`、`platform_utils.py` | 🟡 Ubuntu 完成，Mac 待测 |
 | M3 安全层 | 每次工具调用都要经过的 hook | `deploy/remote-settings.template.json`、`scripts/render_settings.py`、`hooks/remote_guard.py`、`hooks/policy/` | 🟡 代码完成，待手机实测 |
-| M4 记录与还原 | 每个 prompt 前的快照、audit log、restore | `hooks/checkpoint.py`、`scripts/restore.sh` | ⬜ |
+| M4 记录与还原 | 每个 prompt 前的快照、audit log、restore | `hooks/checkpoint.py`、`hooks/gitsnap.py`、`hooks/audit.py`、`scripts/restore.py` | 🟡 代码与 review 完成，待手机实测 |
 | M5 一直在线 | 开机启动 → start-remote.sh → tmux、防休眠 | `scripts/start-remote.sh`、`scripts/install.sh`、`deploy/*.service`、`deploy/*.plist` | ⬜ |
 | M6 v0.2 | 整个电脑区块之上 | 多 session、健康检查、log 轮替 | ⬜ |
 

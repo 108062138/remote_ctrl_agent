@@ -99,8 +99,12 @@ def test_work_dirs(tmp_path):
     assert cs.check_work_dirs([])[0].status == WARN
     assert cs.check_work_dirs([str(tmp_path / "missing")])[0].status == FAIL
     assert cs.check_work_dirs([str(tmp_path)])[0].status == FAIL  # 不是 git repo
-    (tmp_path / ".git").mkdir()
+    import subprocess
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     assert cs.check_work_dirs([str(tmp_path)])[0].status == OK
+    (tmp_path / "sub").mkdir()
+    sub = cs.check_work_dirs([str(tmp_path / "sub")])[0]          # repo 的子资料夹也算（M4 review #8）
+    assert sub.status == OK and "git repo" in sub.detail
 
 
 def test_work_dirs_wrong_type():
@@ -118,11 +122,16 @@ def test_remote_settings(tmp_path):
     guard = tmp_path / "remote_guard.py"
     guard.write_text("")
 
-    def write(python):
-        path.write_text(json.dumps({"hooks": {"PreToolUse": [{"hooks": [{"command": f"{python} {guard}"}]}]}}))
+    def write(python, with_checkpoint=True):
+        hooks = {"PreToolUse": [{"hooks": [{"command": f"{python} {guard}"}]}]}
+        if with_checkpoint:
+            hooks["UserPromptSubmit"] = [{"hooks": [{"command": f"{python} {guard}"}]}]
+        path.write_text(json.dumps({"hooks": hooks}))
 
     write(tmp_path / "no-python")
     assert cs.check_remote_settings(path).status == FAIL            # python 不存在
+    write(sys.executable, with_checkpoint=False)
+    assert cs.check_remote_settings(path).status == FAIL            # 缺还原点 hook（M4 前产生的旧设定）
     write(sys.executable)
     assert cs.check_remote_settings(path).status == OK
 

@@ -50,6 +50,12 @@ def read_auth_status(claude: str, env: dict[str, str] | None = None) -> dict | N
     return parse_json_object(out)
 
 
+def git_toplevel(path: Path) -> Path | None:
+    """path 所在 git repo 的根目录（子资料夹也找得到）；不在 repo 里时回传 None。"""
+    code, out, _ = run(["git", "-C", str(path), "rev-parse", "--show-toplevel"])
+    return Path(out.strip()) if code == 0 and out.strip() else None
+
+
 def conda_env_names() -> list[str] | None:
     """列出 conda 环境名称；找不到 conda 时回传 None。"""
     conda = pu.find_tool("conda")

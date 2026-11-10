@@ -59,16 +59,19 @@ class Context:
     scratch: tuple = field(default=())
 
 
-def make_context(work_dir, *, cwd=None, home=None, tool_root=None, config_dir=None) -> Context:
+def make_context(work_dir, *, cwd=None, home=None, tool_root=None, config_dir=None, log_dir=None) -> Context:
     home = real(home or Path.home())
     work_dir = real(work_dir)
     tool_root = real(tool_root or Path(__file__).resolve().parents[2])
     config_dir = real(config_dir or home / ".config" / "remote-ctrl")
+    log_dir = real(log_dir or home / ".local" / "state" / "remote-ctrl")
     sensitive = tuple(real(home / p) for p in SENSITIVE_HOME_PATHS)
     protected = tuple(real(p) for p in (
         # 安全层本身：不能被远端修改或关掉
         tool_root / "hooks", tool_root / "deploy", tool_root / "scripts",
-        tool_root / "preflight", tool_root / "platform_utils.py", config_dir,
+        tool_root / "preflight", tool_root / "platform_utils.py", config_dir, log_dir,
+        # git 还原点：远端不能删（M4）
+        work_dir / ".git" / "refs" / "remote-ctrl", work_dir / ".git" / "packed-refs",
         home / ".claude" / "settings.json", home / ".claude" / "settings.local.json",
         home / ".claude" / "hooks",
         # shell 启动档：改了之后每次开 shell 都会执行

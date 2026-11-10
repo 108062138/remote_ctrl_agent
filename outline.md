@@ -113,7 +113,7 @@ Ubuntu 和 Mac 是两台独立的机器，**各自**都要满足下面条件，�
 **额外防护**
 - 路径沙箱：写入 / 删除必须在 WORK_DIR 内（或 `/tmp`），读取 WORK_DIR 外要 Ask，机密档案一律 Deny（解析 symlink、展开万用字元后再检查）
 - Bash 拆解：用 `bashlex` 拆开 `&&`、`;`、`|`、`$(...)` 逐段检查，任一段命中 Deny 就整条拒绝；拆不开的指令一律拒绝
-- git checkpoint：`UserPromptSubmit` hook 用 `git stash create` + `git update-ref` 存快照，**不改动工作区**
+- git checkpoint：`UserPromptSubmit` hook 用暂时的 index + `commit-tree` + `update-ref` 存快照（含未追踪档），**不改动工作区**
 - 不提供能解除 Deny 的模式；要做 Deny 层的事请回电脑前操作
 
 **Deny 层只能尽力挡**：两次 code review 都找到新的 Bash 绕过写法，静态分析补不完（细节见 error.md）。所以安全不能只靠规则，要靠下面的「限制范围」。
@@ -141,7 +141,9 @@ remote_ctrl_agent/
 ├── hooks/
 │   ├── remote_guard.py       # PreToolUse：Allow / Ask / Deny 判断 + audit log
 │   ├── policy/               # 判断规则：白名单、Bash 拆解、路径分类（阅读顺序见 __init__.py）
-│   └── checkpoint.py         # UserPromptSubmit：git 快照
+│   ├── checkpoint.py         # UserPromptSubmit：每个 prompt 前拍 git 还原点
+│   ├── gitsnap.py            # 还原点：拍快照 / 列出 / 比较 / 还原（不动工作区）
+│   └── audit.py              # 动作纪录（JSONL）
 ├── deploy/
 │   ├── remote-settings.template.json # 远端专用设定范本（render_settings.py 填入路径后放到本机设定资料夹）
 │   ├── remote-ctrl.service       # Ubuntu systemd
@@ -153,7 +155,7 @@ remote_ctrl_agent/
 │   ├── render_settings.py    # 产生这台电脑的 remote-settings.json
 │   ├── start-remote.sh       # 跑 preflight → 背景启动 claude --remote-control + 防休眠
 │   ├── install.sh            # 判断平台，安装对应 service
-│   └── restore.sh            # 列出 / 还原 git checkpoint
+│   └── restore.py            # 回到电脑前：log / list / diff / restore
 ├── platform_utils.py
 ├── tests/                    # policy、hook、checkpoint 的单元测试
 ├── legacy/telegram/          # 封存的 Telegram 版 M1（bot.py、config.py、test_m1.py）
