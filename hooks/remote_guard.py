@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+"""PreToolUse hook：Claude 每次要用工具前，Claude Code 会先执行这个程式。
+
+流程：
+  stdin 收到 JSON（工具名称、参数、目前目录）
+    -> policy.decide() 判断
+    -> Deny：错误讯息写到 stderr，exit 2（Claude Code 会挡下，并把原因告诉 Claude）
+       Ask ：stdout 输出 permissionDecision = "ask"（手机上跳出允许 / 拒绝）
+       Allow：stdout 输出 permissionDecision = "allow"（直接放行）
+
+只在远端专用设定（remote-settings.json）里注册，所以平常在电脑前用 claude 不受影响。
+程式本身出错时一律拒绝（fail closed）。
+
+工作目录的决定顺序：环境变量 REMOTE_CTRL_WORK_DIR > CLAUDE_PROJECT_DIR > hook 收到的 cwd。
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(HERE.parent))
+
+EXIT_BLOCK = 2
+
+
+def build_output(decision) -> dict:
+    return {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": decision.name,
+            "permissionDecisionReason": f"[remote-guard] {decision.reason}",
+        }
+    }
+
+
+def handle(payload: dict, env: dict[str, str]) -> tuple[int, str, str]:
+    """回传 (exit code, stdout, stderr)。拆出来方便测试。"""
+    import platform_utils as pu
+    import policy
+
+    cwd = payload.get("cwd") or os.getcwd()
+    work_dir = env.get("REMOTE_CTRL_WORK_DIR") or env.get("CLAUDE_PROJECT_DIR") or cwd
+    ctx = policy.make_context(work_dir, cwd=cwd, config_dir=pu.config_dir())
+    decision = policy.decide(payload.get("tool_name", ""), payload.get("tool_input") or {}, ctx)
+    if decision.level == policy.DENY:
+        return EXIT_BLOCK, "", f"⛔ [remote-guard] 已拒绝：{decision.reason}\n这是远端模式的安全规则，请换个做法，或等使用者回到电脑前处理。"
+    return 0, json.dumps(build_output(decision), ensure_ascii=False), ""
+
+
+def main() -> int:
+    try:
+        payload = json.loads(sys.stdin.read() or "{}")
+        if not isinstance(payload, dict):
+            raise ValueError("hook 输入不是 JSON 物件")
+        code, out, err = handle(payload, dict(os.environ))
+    except Exception as e:  # fail closed
+        code, out, err = EXIT_BLOCK, "", f"⛔ [remote-guard] 内部错误，为了安全先拒绝：{type(e).__name__}: {e}"
+    if out:
+        print(out)
+    if err:
+        print(err, file=sys.stderr)
+    return code
+
+
+if __name__ == "__main__":
+    sys.exit(main())
