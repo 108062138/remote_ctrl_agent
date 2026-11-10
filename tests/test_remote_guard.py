@@ -52,3 +52,16 @@ def test_work_dir_falls_back_to_project_dir(tmp_path):
                        input=json.dumps(payload("Write", {"file_path": str(tmp_path / "a.txt")}, tmp_path)),
                        capture_output=True, text=True, env=env, timeout=30)
     assert json.loads(p.stdout)["hookSpecificOutput"]["permissionDecision"] == "ask"
+
+
+def test_timeout_fails_closed(tmp_path):
+    """判断太久时自己先拒绝，不让 Claude Code 等到逾时后略过 hook。"""
+    script = (
+        "import sys, time; sys.path.insert(0, %r)\n"
+        "import remote_guard as g\n"
+        "g.TIME_LIMIT = 1\n"
+        "g.handle = lambda payload, env: time.sleep(5)\n"
+        "sys.exit(g.main())\n" % str(GUARD.parent)
+    )
+    p = subprocess.run([sys.executable, "-c", script], input="{}", capture_output=True, text=True, timeout=30)
+    assert p.returncode == 2 and "超过" in p.stderr

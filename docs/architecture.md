@@ -34,7 +34,7 @@
   |         |                          checkpoint.py -> git snapshot      |
   |         |                                                             |
   |         +-- every tool call -> [M3] PreToolUse hook                   |
-  |                                    remote_guard.py + policy.py        |
+  |                                    remote_guard.py + policy/          |
   |                                    Allow / Ask (phone) / Deny         |
   |                                    +--> [M4] audit log                |
   +------------------------------------|----------------------------------+
@@ -68,7 +68,7 @@
 | M0 规划 | 图外的文件 | `outline.md`、`milestone.md`、`error.md`、`docs/` | ✅ |
 | M1 Telegram | 手机旁边的虚线（已被 Claude app 取代） | `legacy/telegram/` | 🗄 封存 |
 | M2 跑通 + preflight | `claude --remote-control`、`preflight/`、`config.json` | `preflight/`、`scripts/preflight.py`、`platform_utils.py` | 🟡 Ubuntu 完成，Mac 待测 |
-| M3 安全层 | 每次工具调用都要经过的 hook | `deploy/remote-settings.template.json`、`scripts/render_settings.py`、`hooks/remote_guard.py`、`hooks/policy.py` | 🟡 代码完成，待手机实测 |
+| M3 安全层 | 每次工具调用都要经过的 hook | `deploy/remote-settings.template.json`、`scripts/render_settings.py`、`hooks/remote_guard.py`、`hooks/policy/` | 🟡 代码完成，待手机实测 |
 | M4 记录与还原 | 每个 prompt 前的快照、audit log、restore | `hooks/checkpoint.py`、`scripts/restore.sh` | ⬜ |
 | M5 一直在线 | 开机启动 → start-remote.sh → tmux、防休眠 | `scripts/start-remote.sh`、`scripts/install.sh`、`deploy/*.service`、`deploy/*.plist` | ⬜ |
 | M6 v0.2 | 整个电脑区块之上 | 多 session、健康检查、log 轮替 | ⬜ |

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import sys
 from pathlib import Path
 
@@ -26,6 +27,7 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent))
 
 EXIT_BLOCK = 2
+TIME_LIMIT = 10  # 秒；settings 里 Claude Code 的上限是 30 秒
 
 
 def build_output(decision) -> dict:
@@ -52,7 +54,15 @@ def handle(payload: dict, env: dict[str, str]) -> tuple[int, str, str]:
     return 0, json.dumps(build_output(decision), ensure_ascii=False), ""
 
 
+def _on_timeout(signum, frame):
+    raise TimeoutError(f"判断超过 {TIME_LIMIT} 秒")
+
+
 def main() -> int:
+    # Claude Code 等太久会略过 hook（等于没有安全层），所以自己先设上限：超时就拒绝
+    if hasattr(signal, "SIGALRM"):
+        signal.signal(signal.SIGALRM, _on_timeout)
+        signal.alarm(TIME_LIMIT)
     try:
         payload = json.loads(sys.stdin.read() or "{}")
         if not isinstance(payload, dict):

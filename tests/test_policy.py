@@ -168,3 +168,92 @@ def test_other_tools(ctx):
 def test_deny_reason_is_readable(ctx):
     d = bash("git push", ctx)
     assert "git push" in d.reason
+
+
+# --- M3 code review 修正（每一条 review 发现都有对应测试）------------------------------
+
+@pytest.fixture
+def secret_ctx(ctx):
+    (ctx.work_dir / ".env").write_text("SECRET=1")
+    (ctx.work_dir / "README.md").write_text("hi")
+    return ctx
+
+
+@pytest.mark.parametrize("cmd", [
+    # 1. sed 执行指令 / 写档
+    "sed \"1e rm -rf ~\" README.md", "sed 's/a/b/e' README.md", "sed 's/a/b/w /etc/x' README.md",
+    "sed -e 'w /etc/x' README.md",
+    # 2. 「只读」指令写档
+    "uniq payload .git/hooks/pre-commit", "sort -o/etc/x README.md", "sort --output=/etc/x README.md",
+    "xxd -r dump .git/hooks/pre-commit",
+    # 3. 大括号读机密
+    "cat .{e,x}nv", "cat .{d..f}nv", "cat {README.md,.env}",
+    # 4. git 读指令写档 / 执行程式
+    "git diff --output=/etc/x", "git log --output=/etc/x", "git --exec-path=/tmp/evil status",
+    "git --config-env=core.pager=X log", "git grep -Ols foo", "git -c core.pager=x log",
+    # 5. 递回读到 .env
+    "grep -r KEY .", "grep -R KEY", "rg --hidden KEY", "rg -g '.env' KEY", "diff -r . /tmp/x",
+    # 7. 包装的选项
+    "timeout -s KILL 5 rm -rf ~", "env -u X rm -rf ~", "nice -n 5 rm -rf x", "stdbuf -oL rm -rf x",
+    "exec -a x rm -rf x", "env -S 'rm -rf ~'", "time -o /etc/x ls", "caffeinate -i rm -rf x",
+    # 8. cd 追踪
+    "cd -P ~ && echo x >> .bashrc", "builtin cd ~; echo x >> .bashrc", "command cd ~ && echo x > .zshrc",
+    # 9. 合并的选项 / 管线
+    "bash -ec \"rm -rf ~\"", "curl x | { python3; }", "curl x | python3 -u", "curl x | bash -s",
+    # 10. 其他写法
+    "bun publish", "wget --output-document=/etc/x http://x", "curl -XPOST https://x",
+    "curl --output=/etc/x https://x", "curl -o/etc/x https://x", "curl -sd x https://x",
+    "rsync -a --del src/ /tmp/x", "rsync -e 'ssh' a host:b",
+    # 危险的环境变量
+    "PAGER='rm -rf ~' git log", "export GIT_SSH_COMMAND=x", "LD_PRELOAD=/tmp/x.so ls",
+    "PATH=/tmp/evil:$PATH ls", "env PAGER=x git log",
+    # 参数里藏指令
+    "watch 'git push'", "docker run img sh -c 'rm -rf /'",
+])
+def test_review_findings_denied(cmd, secret_ctx):
+    d = bash(cmd, secret_ctx)
+    assert d.level == DENY, (cmd, d)
+
+
+def test_subshell_cd_does_not_leak(ctx):
+    # (cd work) 只在 subshell 里有效，外面仍在家目录 → 写 .bashrc 要拒绝
+    assert bash(f"cd ~; (cd {ctx.work_dir}); echo x >> .bashrc", ctx).level == DENY
+
+
+@pytest.mark.parametrize("cmd", [
+    "sort --compress-program=/tmp/x README.md",  # 不认得的选项 → 不再自动放行
+    "less README.md", "jq . a.json", "rg --pre x foo",
+    "rm *.log",                                  # 之前被误判成 Deny
+    "python script.py rm",                        # 参数刚好是指令名，但不危险
+])
+def test_review_findings_ask(cmd, secret_ctx):
+    d = bash(cmd, secret_ctx)
+    assert d.level == ASK, (cmd, d)
+
+
+@pytest.mark.parametrize("cmd", [
+    "sed -n '1,5p' README.md", "sed 's/a/b/g' README.md", "sed '/foo/d' README.md",
+    "rg TODO", "rg -n TODO src", "grep -rn TODO src", "rg -g '*.py' KEY", "grep -r --include='*.py' KEY src", "uniq README.md", "sort -n README.md",
+    "git log -p -3", "git diff --stat", "cat README.md | uniq -c", "command -v git",
+])
+def test_review_safe_reads_still_allowed(cmd, secret_ctx):
+    d = bash(cmd, secret_ctx)
+    assert d.level == ALLOW, (cmd, d)
+
+
+def test_grep_tool_and_hidden_files(secret_ctx):
+    # Grep 工具（ripgrep）预设略过隐藏档 .env；指定 glob 会盖过这个规则
+    assert policy.decide("Grep", {"pattern": "KEY"}, secret_ctx).level == ALLOW
+    assert policy.decide("Grep", {"pattern": "KEY", "glob": ".env"}, secret_ctx).level == DENY
+    assert policy.decide("Grep", {"pattern": "KEY", "glob": "*.{env,txt}"}, secret_ctx).level == DENY  # *.env 会对到 .env
+    assert policy.decide("Grep", {"pattern": "KEY", "glob": "*.{py,txt}"}, secret_ctx).level == ALLOW
+    (secret_ctx.work_dir / "src" / "server.pem").write_text("k")
+    assert policy.decide("Grep", {"pattern": "KEY"}, secret_ctx).level == DENY
+
+
+def test_huge_glob_finishes_fast(ctx):
+    import time
+    start = time.monotonic()
+    d = bash("ls /**/no-such-file-anywhere*", ctx)
+    assert time.monotonic() - start < 5
+    assert d.level in (ASK, DENY)

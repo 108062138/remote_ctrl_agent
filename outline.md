@@ -97,7 +97,7 @@ Ubuntu 和 Mac 是两台独立的机器，**各自**都要满足下面条件，�
 
 | 层级 | 行为 | 例子 |
 |---|---|---|
-| ✅ Allow（自动放行） | 只读操作 | `Read`、`Glob`、`Grep`、`ls`、`cat`、`git status/diff/log` |
+| ✅ Allow（自动放行） | 只读操作，**白名单**：指令和每个选项都认得才放行，不认得就 Ask | `Read`、`Glob`、`Grep`、`ls -la`、`cat`、`grep -rn`、`git status/diff/log` |
 | ❓ Ask（手机上批准） | 可逆的修改 | `Edit`/`Write`（限 WORK_DIR 内）、跑测试、`git add/commit`、安装 dev 依赖 |
 | ⛔ Deny（直接拒绝，手机批准也没用） | 不可逆 / 影响范围大 | 见下方清单 |
 
@@ -116,12 +116,31 @@ Ubuntu 和 Mac 是两台独立的机器，**各自**都要满足下面条件，�
 - git checkpoint：`UserPromptSubmit` hook 用 `git stash create` + `git update-ref` 存快照，**不改动工作区**
 - 不提供能解除 Deny 的模式；要做 Deny 层的事请回电脑前操作
 
+**Deny 层只能尽力挡**：两次 code review 都找到新的 Bash 绕过写法，静态分析补不完（细节见 error.md）。所以安全不能只靠规则，要靠下面的「限制范围」。
+
+## 安全等级与作用范围（M5 实作）
+在 Ubuntu / Mac 上启动远端 session **之前**，先决定这次的安全等级和作用范围，出事时的影响就被限制住：
+
+```bash
+scripts/start-remote.sh --level readonly --dir ~/code/my-repo
+```
+
+| 等级 | 自动放行 | 手机询问 | 拒绝 | 适合 |
+|---|---|---|---|---|
+| `readonly` | 确定只读的操作 | 无 | 其他全部 | 出门只想看进度、问问题 |
+| `normal` | 确定只读的操作 | 可逆的修改、执行程式 | Deny 清单 | 需要远端改程式 |
+
+- **作用范围**：`--dir` 必须在本机 `config.json` 的 `work_dirs` 白名单里；写入只允许在这个资料夹内
+- 启动前自动检查：preflight 通过、`--dir` 是 git repo、建议没有未 commit 的修改（`normal` 时先存还原点，M4）
+- 等级和范围由启动脚本写进环境变量交给 hook，远端 session 里改不了（相关变数和档案都在受保护清单）
+- `readonly` 的「确定只读」要更严：Bash 只放行没有 `; | & $ { [ *` 等特殊字元的单一指令
+
 # Project Layout
 ```
 remote_ctrl_agent/
 ├── hooks/
 │   ├── remote_guard.py       # PreToolUse：Allow / Ask / Deny 判断 + audit log
-│   ├── policy.py             # Deny 清单、Bash 拆解、路径沙箱（纯函数，方便测试）
+│   ├── policy/               # 判断规则：白名单、Bash 拆解、路径分类（阅读顺序见 __init__.py）
 │   └── checkpoint.py         # UserPromptSubmit：git 快照
 ├── deploy/
 │   ├── remote-settings.template.json # 远端专用设定范本（render_settings.py 填入路径后放到本机设定资料夹）
@@ -146,7 +165,7 @@ remote_ctrl_agent/
 详见 [milestone.md](milestone.md)：
 1. （封存）Telegram echo bot
 2. Remote Control 手动跑通，确认手机能用
-3. 安全层：remote-settings.json + policy.py + remote_guard.py + 测试
+3. 安全层：remote-settings.json + policy/ + remote_guard.py + 测试
 4. Audit log + git checkpoint + 还原脚本
 5. 一直在线：tmux 启动脚本 + systemd / launchd + 防休眠（Ubuntu + macOS）
 6. v0.2 功能

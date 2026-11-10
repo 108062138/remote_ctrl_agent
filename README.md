@@ -2,7 +2,8 @@
 
 人不在电脑前时，用手机的 **Claude app** 控制电脑（Ubuntu / macOS）上的 Claude Code。
 
-> 目前进度：M3 安全层代码完成，待手机实测。
+> 目前进度：M3 安全层完成（待手机实测）。
+> ⚠️ 安全层是「尽力挡」：冷门的 Bash 写法仍可能绕过（见 milestone.md M3 已知限制）。手机上的批准请看清楚完整指令，只在设定好的工作目录里用，出门前先 commit。
 > 已经能用：启动前检查（preflight）、安全层（危险操作直接拒绝）、手动启动远端 session。
 > 还没做：还原点（M4）、开机自动启动（M5）。**手机实测安全层之前，请先在测试资料夹里用。**
 >
@@ -114,7 +115,8 @@ tmux attach -t remote     # 看刚才远端做了什么
 | preflight 显示「登录有效期 ❌ / ⚠️」 | `claude auth login` |
 | preflight 显示「会盖掉订阅登录的环境变量 ⚠️」 | 不用处理，启动远端时会自动移除（目前手动启动时，请先 `unset ANTHROPIC_API_KEY`） |
 | 手机上看不到 session | 确认电脑上的 `claude --remote-control` 还在跑（`tmux attach -t remote`），电脑没睡着、有网络 |
-| 正常的指令被拒绝了 | 原因会写在 `[remote-guard]` 后面；看不懂的语法（例如 `[[ ]]`）会被拒绝，请 Claude 改写成简单的形式。规则在 `hooks/policy.py` |
+| 正常的指令被拒绝了 | 原因会写在 `[remote-guard]` 后面；看不懂的语法（例如 `[[ ]]`）会被拒绝，请 Claude 改写成简单的形式。规则在 `hooks/policy/` |
+| 只读指令也跳出询问 | 只读指令用了白名单以外的选项（例如 `sort --compress-program`）就会问你，确认没问题再批准即可 |
 | preflight 显示「安全层设定 ❌」 | `conda activate remote-ctrl-agent && python scripts/render_settings.py` |
 | 遇到错误 | 把错误讯息记进 [error.md](error.md) |
 

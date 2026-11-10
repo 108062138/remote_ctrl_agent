@@ -6,14 +6,22 @@
 
 状态：⬜ 未开始　🟡 进行中　✅ 完成　🗄 封存
 
+**每个 milestone 的固定流程**
+1. 实作
+2. 测试（单元测试 + 实际跑一次）
+3. code review（`/code-review`，范围是这个 milestone 的档案）
+4. 修正（挑要修的项目，修正记进 error.md）
+5. 更新文件（milestone.md、README、架构图）
+6. commit（一个 milestone 一个 commit，格式 `M<n>: ...`）
+
 | # | 阶段 | 状态 |
 |---|---|---|
 | 0 | 规划：写 outline | ✅ |
 | 1 | Telegram echo bot + 白名单 | 🗄 封存 |
 | 2 | Remote Control 跑通（Ubuntu + Mac）+ preflight 检查 | 🟡 Ubuntu 完成，Mac 待测 |
-| 3 | 安全层：settings + policy + hook | 🟡 代码完成，待手机实测 |
+| 3 | 安全层：settings + policy + hook | 🟡 代码与 review 收尾，待手机实测 |
 | 4 | Audit log + git checkpoint | ⬜ |
-| 5 | 一直在线：tmux + systemd / launchd + 防休眠 | ⬜ |
+| 5 | 一直在线 + 安全等级：启动脚本、systemd / launchd、防休眠 | ⬜ |
 | 6 | v0.2 功能 | ⬜ |
 
 > 原本的 M7「GUI 美化」取消：介面就是 Claude app。
@@ -106,7 +114,7 @@ python3 scripts/preflight.py                     # 两台都要全部没有 ❌
 **目标**：远端 session 里，aggressive 行为直接拒绝；本地 session 不受影响。
 
 **多加了什么**
-- `hooks/policy.py`：判断规则（纯函数）。Bash 指令用 `bashlex` 拆开，逐段判断：
+- `hooks/policy.py`（review 后拆成 `hooks/policy/`）：判断规则（纯函数）。Bash 指令用 `bashlex` 拆开，逐段判断：
   - 组合指令（`&&`、`;`、`|`）、`$(...)`、`<(...)`、`bash -c '...'`、`find -exec`、`xargs`、回圈、subshell 都会拆进去看
   - 去掉 `env`、`time`、`timeout`、`nice` 等包装，用绝对路径（`/usr/bin/sudo`）也认得
   - 追踪 `cd`，之后的相对路径用新目录判断；路径会解开 symlink；万用字元会实际展开检查
@@ -118,12 +126,27 @@ python3 scripts/preflight.py                     # 两台都要全部没有 ❌
 - `tests/test_policy.py`、`tests/test_remote_guard.py`：130 个测试，包含 24 种绕过手法
 - 整理：Telegram 档案移到 `legacy/telegram/`，`requirements.txt` 只留 `bashlex`、`pytest`
 
+**code review 后的修正（2026-11-10）**
+- review 找到 10 类绕过，最严重的会被自动放行（细节见 error.md）
+- `hooks/policy.py` 拆成 `hooks/policy/` 资料夹，阅读顺序见 `hooks/policy/__init__.py`
+- **Allow 层改成严格白名单**：只读指令的每个选项都认得才放行，不认得 → Ask
+- hook 超过 10 秒自己拒绝（避免 Claude Code 等到 30 秒后略过 hook）
+- 测试共 241 个（安全层 205 个），每一条 review 发现都有对应测试
+
 **规则细节和 outline 的差异**
 - 读取工作目录外的档案：Ask（不是 Deny），机密档案仍是 Deny
 - 写到 `/tmp` 视为可以（Ask），其他工作目录外的地方 Deny
 
+**第 2 次 code review 与收尾决定（2026-11-10）**
+- 又找到 10 个绕过（细节见 error.md），其中 5 个会被自动放行
+- **决定不再逐条补洞**：Bash 的写法太多，静态分析补不完。改用「出门前先设定安全等级 + 作用范围」限制风险（放进 M5 启动脚本，见 outline.md「安全等级与作用范围」）
+- 这 10 项记为已知限制，不修
+
 **已知限制**
-- 执行脚本（`python x.py`、`npm test`、`make`）时脚本内容无法分析，一律 Ask，要在手机上看清楚再批准
+- **Deny 层是「尽力挡」，不是保证**：刻意用冷门的 Bash 写法仍可能绕过（例如 `printf -v` 设定变数、bash 特有的 `[^x]` 万用字元、Mac 上大小写不同的档名）。所以：
+  - 手机上的批准要看清楚完整指令再按
+  - 只在设定好的工作目录里用，出门前先 commit
+- 执行脚本（`python x.py`、`npm test`、`make`）时脚本内容无法分析，一律 Ask
 - 第一道防线 `permissions.deny` 的规则语法还没在实机上确认；就算写错，第二道 hook 仍会挡
 
 **学到的概念**：Claude Code `permissions` 规则语法、`PreToolUse` hook 的输入 / 输出、`bashlex` 语法树、symlink 与路径检查、fail closed
@@ -131,7 +154,9 @@ python3 scripts/preflight.py                     # 两台都要全部没有 ❌
 **怎么用**：见 README「每次出门前」
 
 **验证**
-- [x] 单元测试全过（全部 165 个）
+- [x] 单元测试全过（全部 241 个）
+- [x] code review（第 1 次）：10 类绕过已修
+- [x] code review（第 2 次）：又找到 10 个，记为已知限制，改用安全等级 + 作用范围（M5）
 - [x] 用产生出来的 hook 指令实际跑：`ls` → allow、`touch x` → ask、`git push` → exit 2 拒绝
 - [ ] 手机：`git push` / `sudo` / `rm -rf` / 读 `~/.ssh` → ⛔ 拒绝，手机上没有批准提示
 - [ ] 手机：组合指令（`ls && rm -rf x`）→ 仍拒绝
@@ -147,9 +172,14 @@ python3 scripts/preflight.py                     # 两台都要全部没有 ❌
 - [ ] 每个 prompt 前都有一个 checkpoint，`scripts/restore.sh` 列得出来、还原得回去
 - [ ] audit log 记录每次工具调用：时间、工具、参数、允许 / 拒绝
 
-## M5 一直在线 ⬜
-**目标**：开机就自动启动远端 session，挂了会重启，电脑不会休眠。
+## M5 一直在线 + 安全等级 ⬜
+**目标**：开机就自动启动远端 session，挂了会重启，电脑不会休眠；启动前先设定这次的安全等级和作用范围。
 **会多加**：`scripts/start-remote.sh`、`scripts/install.sh`、`platform_utils.py`、`deploy/remote-ctrl.service`、`deploy/com.remotectrl.agent.plist`
+**安全等级 + 作用范围**（M3 第 2 次 review 后的决定，设计见 outline.md）
+- 启动时必须指定 `--level`（`readonly` / `normal`）和 `--dir`（必须在 `config.json` 的 `work_dirs` 里）
+- `readonly`：只放行确定只读的操作，其他一律拒绝（不会跳出询问），适合「出门只想看进度」
+- `normal`：现在的 Allow / Ask / Deny
+- 等级和范围写进环境变量交给 hook，远端改不了
 **Mac 注意**（细节见 outline.md「Mac 特别注意」）：launchd 的 PATH 很短要写绝对路径；必须用 LaunchAgent 才读得到钥匙圈；重开机后要先登录才会启动
 **验证**
 - [ ] 重启电脑后手机连得到 session（Ubuntu；Mac 为登录后）

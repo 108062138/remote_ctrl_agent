@@ -16,6 +16,43 @@
 
 ---
 
+### [2026-11-10] M3 第 2 次 code review：修完又找到 10 个绕过 → 改策略
+- **阶段**：M3
+- **平台**：都有（第 8 项只在 macOS）
+- **现象**：第 1 次修正后再 review，又找到 10 个（reviewer 依程式逻辑推出来，未实际执行）：
+  - 会被**自动放行**：
+    1. `printf -v BASH_ENV ...; export BASH_ENV; bash -c true`：用 `printf -v` 设定变数，没有 `=` 所以没被检查
+    2. `echo .env | xargs -I{} sh -c 'cat {}'`：xargs 的 `{}` 没被当成未知参数
+    3. `cat id_rs[^x]`、`cat .en[[:alpha:]]`：Python 的 fnmatch 看不懂 bash 的 `[^x]`、`[[:alpha:]]`
+    4. `GLOBIGNORE=x; cat *`：让 `*` 也对到隐藏档
+    5. macOS 档名不分大小写：`cat .ENV`、`rg --iglob '.ENV'`
+  - 该 Deny 却只 Ask：条件式 `cd`（`true || cd sub`）、超时的 `TimeoutError` 被 `OSError` 处理吞掉、`git {push,x}` / `/bin/r[m]` 藏住指令名称、`curl ... | bash /dev/stdin`
+- **原因**：用静态分析判断「一条 Bash 指令会做什么」，本质上补不完：bash 的展开、变数、条件执行、平台差异太多，每补一个洞就有新写法
+- **修法**：**不修**，记为已知限制（见 milestone.md M3）。改用「出门前先设定安全等级 + 作用范围」降低风险，放进 M5 启动脚本
+- **教训**：安全设计要先想「出事时的影响范围有多大」，而不是只想「能不能挡住每一种写法」。限制范围（工作目录、只读等级、git 还原点）比追求完美的规则更可靠
+
+### [2026-11-10] M3 code review：安全层有 10 类绕过
+- **阶段**：M3
+- **平台**：都有
+- **现象**：code review 实际跑过的绕过手法，最严重的会被**自动放行**（手机不会问）：
+  1. `sed "1e rm -rf ~" README.md`：sed 的 `e` 指令会执行程式，却被当成只读
+  2. `uniq payload .git/hooks/pre-commit`、`sort --compress-program=...`、`git diff --output=~/.bashrc`：「只读」指令其实能写档或执行程式
+  3. `cat .{e,x}nv`：大括号展开读到 `.env`
+  4. `grep -r KEY .`：递回搜寻把 `.env` 内容印出来
+  5. `ls /**/nomatch*`：万用字元扫整个硬碟，hook 超过 30 秒后 Claude Code 略过它（等于没安全层）
+  - 另外有一些该 Deny 却只变成 Ask：`timeout -s KILL 5 rm -rf ~`、`cd -P ~`、`bash -ec "..."`、`curl x | python3 -u`、`bun publish`、`curl -XPOST`、`rsync --del`；还有 `rm *.log` 被误判成 Deny
+- **原因**：Allow 层是「黑名单思维」：只读指令只要没命中危险规则就放行，但很多只读指令带特殊选项就能写档或执行程式。选项解析也太简单（不懂 `-s KILL` 这种带值的选项、`-ec` 合并、`--opt=value`）
+- **修法**：
+  - `hooks/policy.py` 拆成 `hooks/policy/` 资料夹（core、paths、options、bash、commands、tools）
+  - **Allow 层改成严格白名单**：只读指令的每个选项都要在清单里才放行，不认得就 Ask。以后漏掉的指令最多多问一次，不会悄悄放行
+  - 正规的选项解析（`options.py`）：合并、带值、`--x=v`、`-oFILE`
+  - sed 脚本解析器：找出 `e`、`w`、`r` 指令
+  - 展开 `{a,b}`、`{a..z}`；万用字元和资料夹扫描都有数量上限；hook 自己 10 秒超时就拒绝
+  - 递回读取前先检查资料夹里有没有机密档（会看 rg 是否略过隐藏档、`-g` 样式）
+  - 危险环境变量（`PAGER`、`LD_PRELOAD`、`PATH`……）、参数里藏指令（`watch 'git push'`）、subshell 的 cd
+  - 测试从 130 个增加到 205 个（全部 241 个），每一条 review 发现都有对应测试
+- **教训**：安全规则的「放行」要用白名单，不能用黑名单；黑名单只适合当「一定拒绝」的那层
+
 ### [2026-11-10] 安全层被万用字元绕过：`cat .env*`
 - **阶段**：M3
 - **平台**：都有

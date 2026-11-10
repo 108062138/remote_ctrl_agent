@@ -25,7 +25,7 @@ digraph architecture {
       claude [label="M2  claude --remote-control\n（手机连线已在 Ubuntu 测试成功）", fillcolor="#fff3cd", color="#cc9a06"];
       settings [label="M3  deploy/remote-settings.json\npermissions：allow / ask / deny（由 render_settings.py 产生）", shape=note, fillcolor="#fff3cd", color="#cc9a06"];
       ckpt   [label="M4  UserPromptSubmit hook\ncheckpoint.py → git 快照"];
-      guard  [label="M3  PreToolUse hook\nremote_guard.py + policy.py\nAllow / Ask（手机批准）/ Deny\n（代码完成，待手机实测）", fillcolor="#fff3cd", color="#cc9a06"];
+      guard  [label="M3  PreToolUse hook\nremote_guard.py + policy/\nAllow / Ask（手机批准）/ Deny\n（代码完成，待手机实测）", fillcolor="#fff3cd", color="#cc9a06"];
       audit  [label="M4  audit log\n每次工具调用的记录", shape=note];
     }
 
