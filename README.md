@@ -127,3 +127,4 @@ conda activate remote-ctrl-agent
 python -m pytest -q                       # 跑全部测试
 ```
 程式结构见 [docs/architecture.md](docs/architecture.md) 最后一节。
+# remote_ctrl_agent
