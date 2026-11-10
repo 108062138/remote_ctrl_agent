@@ -1,0 +1,9 @@
+# conda env create -f environment.yml && conda activate remote-ctrl-agent
+name: remote-ctrl-agent
+channels:
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      - -r requirements.txt
