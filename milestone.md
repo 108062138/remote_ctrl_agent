@@ -19,8 +19,8 @@
 | 0 | 规划：写 outline | ✅ |
 | 1 | Telegram echo bot + 白名单 | 🗄 封存 |
 | 2 | Remote Control 跑通（Ubuntu + Mac）+ preflight 检查 | 🟡 Ubuntu 完成，Mac 待测 |
-| 3 | 安全层：settings + policy + hook | 🟡 代码与 review 收尾，待手机实测 |
-| 4 | Audit log + git checkpoint | 🟡 代码与 review 完成，待手机实测 |
+| 3 | 安全层：settings + policy + hook | ✅ Ubuntu 手机实测通过（Mac 待测） |
+| 4 | Audit log + git checkpoint | ✅ Ubuntu 手机实测通过（Mac 待测） |
 | 5 | 一直在线 + 安全等级：启动脚本、systemd / launchd、防休眠 | ⬜ |
 | 6 | v0.2 功能 | ⬜ |
 
@@ -110,7 +110,7 @@ python3 scripts/preflight.py                     # 两台都要全部没有 ❌
 - [ ] Mac：手机测试正常
 - [ ] 手机上两台的 session 名称分得出来
 
-## M3 安全层 🟡（2026-11-10 代码完成，待手机实测）
+## M3 安全层 ✅（2026-11-10 手机实测通过；Mac 待测）
 **目标**：远端 session 里，aggressive 行为直接拒绝；本地 session 不受影响。
 
 **多加了什么**
@@ -158,13 +158,13 @@ python3 scripts/preflight.py                     # 两台都要全部没有 ❌
 - [x] code review（第 1 次）：10 类绕过已修
 - [x] code review（第 2 次）：又找到 10 个，记为已知限制，改用安全等级 + 作用范围（M5）
 - [x] 用产生出来的 hook 指令实际跑：`ls` → allow、`touch x` → ask、`git push` → exit 2 拒绝
-- [ ] 手机：`git push` / `sudo` / `rm -rf` / 读 `~/.ssh` → ⛔ 拒绝，手机上没有批准提示
-- [ ] 手机：组合指令（`ls && rm -rf x`）→ 仍拒绝
-- [ ] 手机：改工作目录里的档案 → 出现批准提示
+- [x] 手机（2026-11-10）：`git push` / `sudo` / `rm -rf` / 读 `~/.ssh` → ⛔ 拒绝，手机上没有批准提示（确认远端 session 有执行 hook）
+- [x] 手机：组合指令（`ls && rm -rf a.txt`）→ 仍拒绝
+- [x] 手机：改工作目录里的档案（Write / Edit / git commit）→ 出现批准提示
 - [ ] 电脑：一般的 `claude`（没带 `--settings`）→ 不受影响
 - [ ] Mac：`render_settings.py` + preflight 通过
 
-## M4 Audit log + git checkpoint 🟡（2026-11-10 代码与 review 完成，待手机实测）
+## M4 Audit log + git checkpoint ✅（2026-11-10 手机实测通过；Mac 待测）
 **目标**：知道远端做过什么，出问题时能还原。
 
 **多加了什么**
@@ -191,7 +191,7 @@ python3 scripts/preflight.py                     # 两台都要全部没有 ❌
 - [x] 单元测试全过（全部 264 个）
 - [x] 实际跑：hook 建立还原点 → 改坏档案、新增档案 → `restore.py diff` 看得到 → `restore` 还原成功
 - [x] code review：10 个全修，每个都有测试
-- [ ] 手机：送 prompt 后 `restore.py list` 看得到新还原点；`restore.py log` 看得到每个动作
+- [x] 手机（2026-11-10，`test_area/learn_git`）：每个 prompt 都有还原点；`restore.py log` 看得到每个动作；不是 git repo 时正确提醒「没有还原点」
 - [ ] Mac：重跑 `render_settings.py`，preflight 通过
 
 ## M5 一直在线 + 安全等级 ⬜
