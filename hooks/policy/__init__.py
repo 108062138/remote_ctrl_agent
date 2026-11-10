@@ -14,6 +14,7 @@
   bash.py       Bash 指令：用 bashlex 拆开组合指令，去掉 env/timeout 等包装，追踪 cd
   commands.py   各指令的规则：只读白名单、git、rm、curl、sed、find……
   tools.py      非 Bash 工具（Read、Write、Edit、Grep、Glob……）和总入口 decide()
+  levels.py     安全等级：readonly 把「询问」变成「拒绝」，Bash 只放行单纯指令
 
 限制：执行脚本（python x.py、npm test、make）时，脚本内容无法分析，一律 Ask，
 请在手机上看清楚再批准。这层是「远端模式的护栏」，不是沙箱。
@@ -23,8 +24,10 @@ from .core import ALLOW, ASK, DENY, Context, Decision, make_context, worst
 from .paths import classify_path, resolve_word
 from .bash import analyze_bash, judge_argv
 from .tools import decide
+from .levels import LEVELS, NORMAL, READONLY, apply_level, parse_level
 
 __all__ = [
     "ALLOW", "ASK", "DENY", "Context", "Decision", "make_context", "worst",
     "classify_path", "resolve_word", "analyze_bash", "judge_argv", "decide",
+    "LEVELS", "NORMAL", "READONLY", "apply_level", "parse_level",
 ]

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- macOS LaunchAgent（由 scripts/install_service.py 填入路径后安装到 ~/Library/LaunchAgents）
+     登录后用 config.json 的 default_level / default_dir 在 tmux 里启动远端 session。
+     必须是 LaunchAgent（跑在使用者登录的 session），才读得到钥匙圈里的 Claude 登录。 -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.remotectrl.agent</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>{{PYTHON}}</string>
+    <string>{{SCRIPT}}</string>
+    <string>--boot</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>{{PATH}}</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <!-- 启动脚本把 tmux 放到背景后就结束；不要让 launchd 顺便把 tmux 收掉 -->
+  <key>AbandonProcessGroup</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>{{LOG_DIR}}/launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>{{LOG_DIR}}/launchd.log</string>
+</dict>
+</plist>

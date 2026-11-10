@@ -1,0 +1,16 @@
+# Ubuntu systemd user service（由 scripts/install_service.py 填入路径后安装）
+# 登录后用 config.json 的 default_level / default_dir 在 tmux 里启动远端 session。
+# 网络：user service 没有 network-online.target，所以由启动脚本自己等网络（最多 5 分钟）。
+# tmux 用专用的 server（tmux -L remote-ctrl），停掉这个服务只会结束远端 session，不影响你自己的 tmux。
+[Unit]
+Description=remote_ctrl_agent: Claude Code 远端 session（预设等级与资料夹）
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment="PATH={{PATH}}"
+ExecStart="{{PYTHON}}" "{{SCRIPT}}" --boot
+ExecStop="{{PYTHON}}" "{{SCRIPT}}" --stop --boot
+
+[Install]
+WantedBy=default.target

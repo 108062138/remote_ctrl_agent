@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import platform_utils as pu
 from preflight import config_store
 from preflight.models import FAIL, OK, WARN, Check
 
@@ -64,19 +65,38 @@ def check_work_dirs(dirs: object) -> list[Check]:
         return [Check("工作目录", FAIL, "work_dirs 必须是字串清单", '例如 "work_dirs": ["~/proj"]')]
     from preflight import commands
 
+    # 白名单里个别资料夹有问题只警告（不能挡住其他资料夹的启动）；启动时会再检查要用的那个
     checks = []
     for d in dirs:
         p = Path(d).expanduser()
         if not p.is_dir():
-            checks.append(Check(f"工作目录 {d}", FAIL, "不存在", "修正 config.json 里的路径"))
+            checks.append(Check(f"工作目录 {d}", WARN, "不存在（启动时会略过）", "修正或移除 config.json 里的路径"))
             continue
-        # 和还原点用同一个判断：repo 的子资料夹也算（不要叫使用者在子资料夹 git init）
         top = commands.git_toplevel(p)
         if top is None:
-            checks.append(Check(f"工作目录 {d}", FAIL, "不在任何 git repo 里（还原点需要 git）",
-                                f"cd {d} && git init"))
+            checks.append(Check(f"工作目录 {d}", WARN, "不是 git repo：只能用 readonly（normal 需要还原点）",
+                                f"要用 normal：cd {d} && git init"))
         elif top.resolve() != p.resolve():
-            checks.append(Check(f"工作目录 {d}", OK, f"在 git repo {top} 里（还原点会存整个 repo）"))
+            checks.append(Check(f"工作目录 {d}", WARN, f"是 git repo {top} 的子资料夹：只能用 readonly"
+                                "（git 指令会动到整个 repo）", f"要用 normal：把 {top} 加进白名单"))
         else:
-            checks.append(Check(f"工作目录 {d}", OK, "存在且是 git repo"))
+            checks.append(Check(f"工作目录 {d}", OK, "存在且是 git repo 根目录"))
     return checks
+
+
+def check_defaults(cfg: dict) -> Check:
+    """开机自动启动（M5）用的预设值：没设定只是警告；设错了就失败。"""
+    name = "开机预设（default_level / default_dir）"
+    level, d = cfg.get("default_level"), cfg.get("default_dir")
+    if not level and not d:
+        return Check(name, WARN, "还没设定（手动启动不需要；开机自动启动才需要）",
+                     f'在 {config_store.config_path()} 加上 "default_level": "readonly", "default_dir": "..."')
+    if level not in pu.LEVELS:
+        return Check(name, FAIL, f"default_level 只能是 {' / '.join(pu.LEVELS)}：{level!r}", "修正 config.json")
+    if not isinstance(d, str) or not d:
+        return Check(name, FAIL, "缺少 default_dir", "修正 config.json")
+    if not Path(d).expanduser().is_dir():
+        return Check(name, FAIL, f"default_dir 不存在：{d}", "修正 config.json")
+    if pu.in_whitelist(d, cfg.get("work_dirs")) is None:
+        return Check(name, FAIL, f"default_dir 不在 work_dirs 白名单里：{d}", "把它加进 work_dirs，或换一个预设资料夹")
+    return Check(name, OK, f"{level}，{d}")

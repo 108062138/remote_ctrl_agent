@@ -97,14 +97,15 @@ def test_tool_required():
 
 def test_work_dirs(tmp_path):
     assert cs.check_work_dirs([])[0].status == WARN
-    assert cs.check_work_dirs([str(tmp_path / "missing")])[0].status == FAIL
-    assert cs.check_work_dirs([str(tmp_path)])[0].status == FAIL  # 不是 git repo
+    # 个别资料夹有问题只警告，不能挡住其他资料夹（M5 review #2）
+    assert cs.check_work_dirs([str(tmp_path / "missing")])[0].status == WARN
+    assert cs.check_work_dirs([str(tmp_path)])[0].status == WARN   # 不是 git repo：只能 readonly
     import subprocess
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     assert cs.check_work_dirs([str(tmp_path)])[0].status == OK
     (tmp_path / "sub").mkdir()
-    sub = cs.check_work_dirs([str(tmp_path / "sub")])[0]          # repo 的子资料夹也算（M4 review #8）
-    assert sub.status == OK and "git repo" in sub.detail
+    sub = cs.check_work_dirs([str(tmp_path / "sub")])[0]           # repo 子资料夹：只能 readonly（M5 review #6）
+    assert sub.status == WARN and "readonly" in sub.detail
 
 
 def test_work_dirs_wrong_type():

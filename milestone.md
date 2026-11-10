@@ -21,7 +21,7 @@
 | 2 | Remote Control 跑通（Ubuntu + Mac）+ preflight 检查 | 🟡 Ubuntu 完成，Mac 待测 |
 | 3 | 安全层：settings + policy + hook | ✅ Ubuntu 手机实测通过（Mac 待测） |
 | 4 | Audit log + git checkpoint | ✅ Ubuntu 手机实测通过（Mac 待测） |
-| 5 | 一直在线 + 安全等级：启动脚本、systemd / launchd、防休眠 | ⬜ |
+| 5 | 一直在线 + 安全等级：启动脚本、systemd / launchd、防休眠 | 🟡 代码与 review 完成，待手机实测 |
 | 6 | v0.2 功能 | ⬜ |
 
 > 原本的 M7「GUI 美化」取消：介面就是 Claude app。
@@ -194,19 +194,57 @@ python3 scripts/preflight.py                     # 两台都要全部没有 ❌
 - [x] 手机（2026-11-10，`test_area/learn_git`）：每个 prompt 都有还原点；`restore.py log` 看得到每个动作；不是 git repo 时正确提醒「没有还原点」
 - [ ] Mac：重跑 `render_settings.py`，preflight 通过
 
-## M5 一直在线 + 安全等级 ⬜
-**目标**：开机就自动启动远端 session，挂了会重启，电脑不会休眠；启动前先设定这次的安全等级和作用范围。
-**会多加**：`scripts/start-remote.sh`、`scripts/install.sh`、`platform_utils.py`、`deploy/remote-ctrl.service`、`deploy/com.remotectrl.agent.plist`
-**安全等级 + 作用范围**（M3 第 2 次 review 后的决定，设计见 outline.md）
-- 启动时必须指定 `--level`（`readonly` / `normal`）和 `--dir`（必须在 `config.json` 的 `work_dirs` 里）
-- `readonly`：只放行确定只读的操作，其他一律拒绝（不会跳出询问），适合「出门只想看进度」
-- `normal`：现在的 Allow / Ask / Deny
-- 等级和范围写进环境变量交给 hook，远端改不了
-**Mac 注意**（细节见 outline.md「Mac 特别注意」）：launchd 的 PATH 很短要写绝对路径；必须用 LaunchAgent 才读得到钥匙圈；重开机后要先登录才会启动
+## M5 一直在线 + 安全等级 🟡（2026-11-10 代码与 review 完成，待手机实测）
+**目标**：一行指令启动远端 session（先选安全等级和资料夹），挂了会重启、电脑不睡；可选登录后自动启动。
+
+**事前决定（2026-11-10，出门吃饭前问好）**
+- 开机启动：用 `config.json` 的 `default_level` + `default_dir`
+- 白名单 `work_dirs`：使用者自己编辑 `config.json`，程式不代改
+- `normal` 启动时有未 commit 的修改：先存还原点、警告，然后照常启动
+- 开机服务：只做好并测试，不在这台电脑安装
+
+**多加了什么**
+- `hooks/policy/levels.py`：安全等级。`readonly` 把「询问」改成「拒绝」，Bash 只放行没有 `; | & $ * { [` 等符号的单一指令；`normal` 不变。等级由 `REMOTE_CTRL_LEVEL` 传给 hook，没设定是 normal，看不懂的值当 readonly
+- `scripts/start_remote.py`（+ `scripts/start-remote.sh`）：
+  - `--level`、`--dir`（必须在白名单里，子资料夹也可以）、`--name`、`--boot`、`--status`、`--stop`、`--dry-run`
+  - 启动前：白名单 → normal 需要 git repo → preflight 有 ❌ 就不启动 → 已经在跑就不重复启动 → 有未 commit 的修改先存还原点
+  - 在 tmux（`rc-<名称>`）里跑：移除 API key 变量、设定工作目录和等级、`systemd-inhibit` / `caffeinate` 防休眠
+  - claude 异常结束自动重启（10 分钟内最多 5 次）；正常结束不重启
+  - 启动、结束、失败都写进 audit log
+- `scripts/install_service.py`（+ `scripts/install.sh`）：安装 / 移除登录后自动启动
+  - Ubuntu：`~/.config/systemd/user/remote-ctrl.service`（`systemctl --user enable`，不需要 sudo）
+  - Mac：`~/Library/LaunchAgents/com.remotectrl.agent.plist`（LaunchAgent 才读得到钥匙圈；`AbandonProcessGroup` 让 tmux 留着）
+  - 没有设定预设值时拒绝安装
+- preflight 多一项「开机预设」检查：没设定是 ⚠️；等级写错或预设资料夹不在白名单是 ❌
+- 安全层：直接执行受保护位置的程式（例如远端跑 `scripts/start-remote.sh` 开新 session 提高等级）→ 拒绝
+- `tests/test_start_remote.py`：33 个测试（等级、白名单、`../` 绕不出去、preflight 挡住、还原点、已在跑、dry-run 不动东西、自动重启与放弃、停止、服务安装）。全部 297 个
+
+**code review 后的修正（2026-11-10，使用者外出时依事前决定全修）**：10 个全修（细节见 error.md），重点：
+- session 名称改成 `rc-<名称>-<路径代码>-<等级>`：不同位置的同名资料夹不会撞在一起；同一个资料夹用不同等级在跑时会要求先停掉
+- 远端 session 用专用的 tmux server（`tmux -L remote-ctrl`）：停掉服务不会杀到你自己的 tmux
+- `normal` 必须是 git repo 的根目录（git 指令会动到整个 repo）；子资料夹只能 `readonly`
+- 白名单里个别资料夹不是 git repo 或不存在：preflight 只警告，不再挡住全部
+- 启动前先等网络（最多 5 分钟），user service 不用 network-online.target
+- 服务档路径有空白、% 也不会坏（`systemd-analyze verify` 通过）；`systemctl` 失败会说失败
+- 安全等级清单只定义一次（`platform_utils.LEVELS`）
+- 测试共 308 个
+
+**注意**
+- Ubuntu 的 user service 在「登录后」才跑，登出就停；锁屏没关系。要不登录也跑需要 `loginctl enable-linger`（未做）
+- Mac 重开机后要先登录；合盖仍会睡
+- 服务用的 python 是安装时的 `python3`（这台是 linuxbrew 的 3.14）；换 python 后要重跑 `scripts/install.sh`
+
+**学到的概念**：systemd user service（`oneshot` + `RemainAfterExit`）、launchd LaunchAgent、`systemd-inhibit` / `caffeinate`、tmux 背景 session、重启的退避与上限
+
 **验证**
-- [ ] 重启电脑后手机连得到 session（Ubuntu；Mac 为登录后）
-- [ ] 手动 kill session → 自动重启
-- [ ] macOS 闲置 30 分钟后仍在线
+- [x] 单元测试全过（全部 308 个）
+- [x] 真实环境 dry-run（暂时设定档）：preflight 通过、未 commit 会提醒、白名单外被挡、`--boot` 用预设值、服务档内容正确、`systemd-inhibit` 不需要密码
+- [x] code review：10 个全修，每个都有测试
+- [ ] 手机：`--level readonly` 启动 → 读档可以、改档直接被拒绝（不会问）
+- [ ] 手机：`--level normal` 启动 → 和 M3 / M4 一样
+- [ ] 电脑：`--stop` 后手机上 session 消失；手动 kill claude → 自动重启
+- [ ] 安装服务后重新登录 → 手机看得到预设 session（使用者决定何时安装）
+- [ ] Mac：同上
 
 ## M6 v0.2 ⬜
 多项目多 session、健康检查与通知、log 轮替（细节见 outline.md）

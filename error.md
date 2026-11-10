@@ -16,6 +16,27 @@
 
 ---
 
+### [2026-11-10] M5 code review：启动脚本与开机服务的 10 个问题
+- **阶段**：M5
+- **平台**：都有（3、4、8、9 主要是 Ubuntu）
+- **现象 → 修法**：
+  1. session 只用资料夹名称命名：`~/a/proj` 和 `~/b/proj` 撞名，第二个会被当成「已经在跑」→ 名称加上路径代码和等级 `rc-<名称>-<代码>-<等级>`；同资料夹不同等级要求先停掉
+  2. 白名单里有一个非 git / 不存在的资料夹，preflight 就 ❌ 挡住所有启动 → 改成 ⚠️，启动时只检查要用的那个
+  3. 服务启动的 tmux server 在服务的 cgroup 里，停服务会杀掉使用者自己的 tmux session → 远端用专用 server `tmux -L remote-ctrl`
+  4. user service 的 `network-online.target` 没作用，开机时网络还没好就重启 5 次后放弃 → 启动脚本自己等网络（最多 5 分钟），重启前也等
+  5. `--stop --boot` 用没解开的路径算名称，symlink 时停不到 → 和启动用同一个 `resolve_target`
+  6. 白名单是 repo 子资料夹时，`git checkout` 等会动到白名单外的档案 → `normal` 必须是 repo 根目录
+  7. 安装脚本的预设值检查比 preflight 弱，装好了开机才失败 → 直接用 preflight 的检查
+  8. 路径有空白、`%`（systemd）或 `&`、`<`（plist）时服务档坏掉 → 引号 + 跳脱；`systemd-analyze verify` 通过
+  9. `systemctl --user enable` 失败仍显示成功 → 失败就说失败、exit 1
+  10. 安全等级清单写在 4 个地方 → 统一由 `platform_utils.LEVELS` 定义
+- **原因**：只想到「一个资料夹、一个 session、网络正常、路径单纯」的情况；对 systemd user service 的 cgroup 和 target 不熟
+- **教训**：
+  - 识别用的名称要能唯一对应（路径代码），不能只用好看的名字
+  - 背景服务产生的程序会被服务一起管理（cgroup）；共用资源（tmux server）要分开
+  - 安装 / 设定类脚本要「失败就说失败」，不要只印警告
+  - 同一个规则只写一次（等级清单、白名单判断）
+
 ### [2026-11-10] 手机实测发现：测试写进真的纪录、工作目录外的读取被放行
 - **阶段**：M3 / M4 手机实测
 - **平台**：Ubuntu

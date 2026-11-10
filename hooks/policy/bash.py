@@ -20,7 +20,7 @@ import bashlex
 from . import commands
 from .core import ALLOW, ASK, DENY, Context, Decision, Unclear, worst
 from .options import leading, spec
-from .paths import SENSITIVE, classify_path, path_args, path_rule, resolve_word
+from .paths import PROTECTED, SENSITIVE, classify_path, path_args, path_rule, resolve_word
 
 MAX_DEPTH = 3
 UNKNOWN_ARG = "$UNKNOWN"   # 参数来自别处（xargs、find -exec {}），无法确定
@@ -259,6 +259,10 @@ def _judge(words: list[str], ctx: Context, piped: bool, depth: int) -> Decision:
     if "$" in raw_name or "`" in raw_name:
         return Decision(DENY, "指令名称是变数，无法确认要执行什么")
     name = os.path.basename(raw_name).lower()
+
+    # 直接执行安全层自己的程式（scripts/start-remote.sh 等）：可能开新 session 提高等级、停掉服务
+    if "/" in raw_name and classify_path(raw_name, ctx) in (PROTECTED, SENSITIVE):
+        return Decision(DENY, f"远端模式禁止执行安全层或受保护位置的程式：{raw_name}")
 
     denied = commands.deny_by_name(name, args)
     if denied:

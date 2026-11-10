@@ -12,6 +12,7 @@
 程式本身出错时一律拒绝（fail closed）。
 
 工作目录的决定顺序：环境变量 REMOTE_CTRL_WORK_DIR > CLAUDE_PROJECT_DIR > hook 收到的 cwd。
+安全等级：环境变量 REMOTE_CTRL_LEVEL（readonly / normal，见 policy/levels.py）。
 """
 
 from __future__ import annotations
@@ -52,10 +53,11 @@ def handle(payload: dict, env: dict[str, str]) -> tuple[int, str, str]:
     ctx = policy.make_context(work_dir, cwd=cwd, config_dir=pu.config_dir(), log_dir=log_dir)
     tool_name = payload.get("tool_name", "")
     tool_input = payload.get("tool_input") or {}
-    decision = policy.decide(tool_name, tool_input, ctx)
+    level = policy.parse_level(env.get("REMOTE_CTRL_LEVEL"))
+    decision = policy.apply_level(level, tool_name, tool_input, policy.decide(tool_name, tool_input, ctx))
     audit.write(log_dir, {"event": "tool", "session": payload.get("session_id"), "tool": tool_name,
                           "input": audit.summarize_input(tool_name, tool_input),
-                          "decision": decision.name, "reason": decision.reason, "cwd": cwd})
+                          "decision": decision.name, "reason": decision.reason, "cwd": cwd, "level": level})
     if decision.level == policy.DENY:
         return EXIT_BLOCK, "", f"⛔ [remote-guard] 已拒绝：{decision.reason}\n这是远端模式的安全规则，请换个做法，或等使用者回到电脑前处理。"
     return 0, json.dumps(build_output(decision), ensure_ascii=False), ""

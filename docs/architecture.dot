@@ -14,18 +14,18 @@ digraph architecture {
   subgraph cluster_pc {
     label="你的电脑（Ubuntu / macOS）"; style="rounded"; color="#adb5bd";
 
-    boot   [label="M5  开机自动启动\nsystemd（Ubuntu）/ launchd（Mac）"];
-    start  [label="M5  scripts/start-remote.sh\n① 跑 preflight  ② 防休眠  ③ 移除 API key 变量"];
+    boot   [label="M5  登录后自动启动（可选）\nsystemd（Ubuntu）/ launchd（Mac）\n用 default_level + default_dir", fillcolor="#fff3cd", color="#cc9a06"];
+    start  [label="M5  scripts/start-remote.sh --level --dir\n① 白名单 ② preflight ③ 还原点 ④ tmux + 防休眠 + 自动重启", fillcolor="#fff3cd", color="#cc9a06"];
     pre    [label="M2  preflight/\n启动前检查清单 ✅ ⚠️ ❌\n（有 ❌ 就不启动）", fillcolor="#fff3cd", color="#cc9a06"];
     cfg    [label="本机设定档 config.json\n可信账号 orgId、工作目录", shape=note, fillcolor="#fff3cd", color="#cc9a06"];
-    sleep  [label="M5  防休眠\nsystemd-inhibit / caffeinate"];
+    sleep  [label="M5  防休眠\nsystemd-inhibit / caffeinate", fillcolor="#fff3cd", color="#cc9a06"];
 
     subgraph cluster_session {
       label="tmux 里一直跑的远端 session"; style="rounded,dashed"; color="#adb5bd";
       claude [label="M2  claude --remote-control\n（手机连线已在 Ubuntu 测试成功）", fillcolor="#fff3cd", color="#cc9a06"];
       settings [label="M3  deploy/remote-settings.json\npermissions：allow / ask / deny（由 render_settings.py 产生）", shape=note, fillcolor="#fff3cd", color="#cc9a06"];
       ckpt   [label="M4  UserPromptSubmit hook\ncheckpoint.py → git 还原点", fillcolor="#fff3cd", color="#cc9a06"];
-      guard  [label="M3  PreToolUse hook\nremote_guard.py + policy/\nAllow / Ask（手机批准）/ Deny\n（代码完成，待手机实测）", fillcolor="#fff3cd", color="#cc9a06"];
+      guard  [label="M3  PreToolUse hook\nremote_guard.py + policy/\nAllow / Ask（手机批准）/ Deny\n+ 安全等级 readonly / normal", fillcolor="#d4edda", color="#198754"];
       audit  [label="M4  audit log\n每个 prompt 和工具调用的纪录", shape=note, fillcolor="#fff3cd", color="#cc9a06"];
     }
 

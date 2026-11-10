@@ -10,6 +10,11 @@ from pathlib import Path
 IS_MAC = sys.platform == "darwin"
 IS_LINUX = sys.platform.startswith("linux")
 
+# 安全等级（唯一的定义；hooks/policy/levels.py、启动脚本、安装脚本、preflight 都用这个）
+LEVELS = ("readonly", "normal")
+# 远端 session 专用的 tmux server（-L），和你自己的 tmux 分开：停掉服务不会影响你的 session
+TMUX_SOCKET = "remote-ctrl"
+
 # Env vars that would override the claude.ai subscription login, switch the provider,
 # or send traffic to another endpoint. The remote session is always started without them.
 # Their values are never read.
@@ -84,3 +89,16 @@ def sanitized_env(env: dict[str, str] | None = None) -> dict[str, str]:
     for var in OVERRIDING_AUTH_VARS:
         env.pop(var, None)
     return env
+
+
+def in_whitelist(path, work_dirs) -> Path | None:
+    """path（解开 symlink、..）在 work_dirs 里某个资料夹之内时，回传解开后的路径；否则 None。"""
+    p = Path(path).expanduser().resolve()
+    if not isinstance(work_dirs, list):
+        return None
+    for w in work_dirs:
+        if isinstance(w, str) and w:
+            base = Path(w).expanduser().resolve()
+            if p == base or base in p.parents:
+                return p
+    return None

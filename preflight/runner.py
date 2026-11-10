@@ -17,7 +17,8 @@ from preflight.checks_claude import (
     check_remote_flag,
     check_trusted_account,
 )
-from preflight.checks_system import check_conda_env, check_remote_settings, check_tool, check_work_dirs
+from preflight.checks_system import (check_conda_env, check_defaults, check_remote_settings, check_tool,
+                                    check_work_dirs)
 from preflight.models import FAIL, Check
 
 
@@ -52,4 +53,5 @@ def run_checks() -> list[Check]:
     checks.append(check_conda_env(commands.conda_env_names()))
     checks.append(check_remote_settings(pu.config_dir() / "remote-settings.json"))
     checks += check_work_dirs(cfg.get("work_dirs", []))
+    checks.append(check_defaults(cfg))
     return checks
