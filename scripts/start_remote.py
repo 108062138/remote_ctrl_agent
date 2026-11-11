@@ -5,7 +5,7 @@
   python3 scripts/start_remote.py                                            用设定档的预设值启动
   python3 scripts/start_remote.py --boot                                     开机服务用（只看预设值）
   python3 scripts/start_remote.py --status                                   列出正在跑的远端 session
-  python3 scripts/start_remote.py --stop --name learn_git                    停止某个 session（--all 全部）
+  python3 scripts/start_remote.py --stop --name Desktop_learn_git            停止某个 session（也可用 --dir；--all 全部）
   python3 scripts/start_remote.py --dry-run ...                              只显示会做什么，不真的启动
 
 启动前会：
@@ -18,7 +18,8 @@
      设定 REMOTE_CTRL_WORK_DIR / REMOTE_CTRL_LEVEL，用 systemd-inhibit（Ubuntu）或 caffeinate（Mac）防休眠
   7. 等网络好了才启动 claude；异常结束自动重启（10 分钟内最多 5 次）
 
-tmux session 名称：rc-<资料夹名>-<路径代码>-<等级>，例如 rc-learn_git-3fa2c1-readonly。
+名称：预设是「上一层资料夹_资料夹名」（例如 Desktop_learn_git），手机上看到的也是这个。
+tmux session 名称：rc-<名称>-<路径代码>-<等级>，例如 rc-Desktop_learn_git-3fa2c1-readonly。
 路径代码来自完整路径，所以不同位置的同名资料夹不会撞在一起。
 
 预设值写在本机设定档（Ubuntu ~/.config/remote-ctrl/config.json，Mac ~/Library/Application Support/remote-ctrl/config.json）：
@@ -65,6 +66,18 @@ class StartError(Exception):
 def safe_name(text: str) -> str:
     name = re.sub(r"[^A-Za-z0-9_]+", "_", text).strip("_")
     return name or "session"
+
+
+def default_name(d: Path) -> str:
+    """手机和 tmux 上看到的名称：上一层资料夹 + 资料夹名，同名的资料夹也分得出来。
+
+    ~/Desktop/learn_git → Desktop_learn_git；~/Desktop/test_area/learn_git → test_area_learn_git
+    直接放在家目录（或根目录）下的资料夹只用自己的名称：~/rc-test → rc-test
+    """
+    parent = d.parent
+    if parent in (Path.home().resolve(), Path("/")):
+        return d.name
+    return f"{parent.name}_{d.name}"
 
 
 def dir_code(d: Path) -> str:
@@ -126,7 +139,7 @@ def resolve_target(level: str | None, dir_: str | None, name: str | None, cfg: d
     if level not in LEVELS:
         raise StartError(f"不认得的安全等级 {level!r}，只能是 {' / '.join(LEVELS)}")
     d = allowed_dir(dir_, cfg.get("work_dirs"))
-    return Target(level, d, safe_name(name or d.name))
+    return Target(level, d, safe_name(name or default_name(d)))
 
 
 def check_git_for_level(target: Target) -> None:
@@ -191,12 +204,22 @@ def _tmux() -> str:
     return tmux
 
 
-def running_sessions() -> list[str]:
-    p = subprocess.run(tmux_base(_tmux()) + ["list-sessions", "-F", "#{session_name}"],
+def session_paths() -> dict[str, str]:
+    """正在跑的远端 session → 它的工作资料夹。"""
+    p = subprocess.run(tmux_base(_tmux()) + ["list-sessions", "-F", "#{session_name}\t#{session_path}"],
                        capture_output=True, text=True)
     if p.returncode != 0:
-        return []  # 没有 tmux server = 没有 session
-    return [s for s in p.stdout.split() if parse_session(s)]
+        return {}  # 没有 tmux server = 没有 session
+    result = {}
+    for line in p.stdout.splitlines():
+        session, _, path = line.partition("\t")
+        if parse_session(session):
+            result[session] = path
+    return result
+
+
+def running_sessions() -> list[str]:
+    return list(session_paths())
 
 
 def attach_hint(session: str) -> str:
@@ -309,16 +332,18 @@ def stop(args) -> int:
     elif args.boot:
         target = resolve_target(None, None, None, load_config(), boot=True)   # 和启动时同一套解析
         targets = [s for s in sessions if s.startswith(target.base)]
-    elif args.name:
-        name = safe_name(args.name)
-        targets = [s for s in sessions if parse_session(s)[0] == name]
+    elif args.name or args.dir:
+        targets = sessions
+        if args.name:
+            name = safe_name(args.name)
+            targets = [s for s in targets if parse_session(s)[0] == name]
         if args.dir:
             d = Path(args.dir).expanduser().resolve()
             targets = [s for s in targets if parse_session(s)[1] == dir_code(d)]
         if len(targets) > 1:
-            raise StartError(f"有 {len(targets)} 个 session 叫 {name}，请加 --dir 指定是哪个资料夹：{', '.join(targets)}")
+            raise StartError(f"有 {len(targets)} 个 session 符合，请加 --dir 指定是哪个资料夹：{', '.join(targets)}")
     else:
-        raise StartError("请指定 --name（或用 --all 停止全部）")
+        raise StartError("请指定 --name 或 --dir（或用 --all 停止全部）")
     if not targets:
         print("没有要停止的远端 session。")
         return 0
@@ -330,12 +355,14 @@ def stop(args) -> int:
 
 
 def status(args) -> int:
-    sessions = running_sessions()
+    sessions = session_paths()
     if not sessions:
         print("目前没有远端 session 在跑。")
-    for s in sessions:
+    for s, path in sessions.items():
         name, _, level = parse_session(s)
-        print(f"● {name}（{level}）　接上去看：{attach_hint(s)}")
+        print(f"● {name}　{level}　{path or '?'}")
+        print(f"    接上去看：{attach_hint(s)}")
+        print(f"    停止：scripts/start-remote.sh --stop --name {name}")
     return 0
 
 

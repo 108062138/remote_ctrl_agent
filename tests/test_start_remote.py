@@ -128,7 +128,7 @@ def test_whitelist(env):
     cfg = {"work_dirs": [str(env["repo"])]}
     assert sr.resolve_target("normal", str(env["repo"]), None, cfg, False).dir == env["repo"].resolve()
     (env["repo"] / "sub").mkdir()
-    assert sr.resolve_target("normal", str(env["repo"] / "sub"), None, cfg, False).name == "sub"
+    assert sr.resolve_target("normal", str(env["repo"] / "sub"), None, cfg, False).name == "proj_sub"
     with pytest.raises(sr.StartError, match="白名单"):
         sr.resolve_target("normal", str(env["plain"]), None, cfg, False)
     with pytest.raises(sr.StartError, match="work_dirs"):
@@ -143,8 +143,9 @@ def test_whitelist(env):
 def test_defaults_and_boot(env):
     cfg = {"work_dirs": [str(env["repo"])], "default_level": "readonly", "default_dir": str(env["repo"])}
     t = sr.resolve_target(None, None, None, cfg, False)
-    assert (t.level, t.name) == ("readonly", "proj")
-    assert t.session == f"rc-proj-{sr.dir_code(env['repo'].resolve())}-readonly"
+    name = sr.default_name(env["repo"].resolve())
+    assert (t.level, t.name) == ("readonly", name) and name.endswith("_proj")
+    assert t.session == f"rc-{name}-{sr.dir_code(env['repo'].resolve())}-readonly"
     t = sr.resolve_target("normal", None, None, cfg, True)       # --boot 只看预设值
     assert t.level == "readonly"
     with pytest.raises(sr.StartError, match="default_level"):
@@ -180,7 +181,7 @@ def test_start_normal_creates_checkpoint_when_dirty(env):
     assert start("--level", "normal", "--dir", str(env["repo"])) == 0
     cps = gitsnap.list_checkpoints(env["repo"])
     assert len(cps) == 1 and "启动" in cps[0].label
-    assert "-L remote-ctrl new-session -d -s rc-proj-" in env["tmux_log"].read_text()
+    assert f"-L remote-ctrl new-session -d -s {session_of(env, 'normal')}" in env["tmux_log"].read_text()
 
 
 def test_start_clean_repo_no_checkpoint(env):
@@ -205,7 +206,8 @@ def test_start_blocked_by_preflight(env, monkeypatch, capsys):
 
 
 def session_of(env, level, d=None):
-    return sr.Target(level, (d or env["repo"]).resolve(), "proj").session
+    d = (d or env["repo"]).resolve()
+    return sr.Target(level, d, sr.default_name(d)).session
 
 
 def test_start_already_running_is_ok(env, capsys):
@@ -236,10 +238,11 @@ def test_boot_failure_is_logged(env, tmp_path):
 def test_stop_and_status(env, capsys):
     write_cfg(env, work_dirs=[str(env["repo"])], default_dir=str(env["repo"]), default_level="readonly")
     mine = session_of(env, "readonly")
-    (env["tmp"] / "sessions").write_text(f"{mine}\nrc-other-abcdef-normal\nunrelated\n")
+    (env["tmp"] / "sessions").write_text(f"{mine}\t{env['repo']}\nrc-other-abcdef-normal\t/x\nunrelated\t/y\n")
     assert start("--status") == 0
     out = capsys.readouterr().out
-    assert "proj（readonly）" in out and "unrelated" not in out
+    assert f"{sr.default_name(env['repo'].resolve())}　readonly　{env['repo']}" in out   # 名称、等级、完整路径
+    assert "unrelated" not in out
     assert start("--stop", "--boot") == 0
     assert f"kill-session -t {mine}" in env["tmux_log"].read_text()
     assert "rc-other" not in env["tmux_log"].read_text().split("kill-session")[-1]
@@ -412,3 +415,19 @@ def test_review10_levels_have_one_source():
     import platform_utils as pu
     from hooks.policy import levels
     assert sr.LEVELS is pu.LEVELS and levels.LEVELS is pu.LEVELS
+
+
+def test_default_name_tells_folders_apart(tmp_path):
+    a = tmp_path / "Desktop" / "learn_git"
+    b = tmp_path / "Desktop" / "test_area" / "learn_git"
+    assert sr.default_name(a) == "Desktop_learn_git"
+    assert sr.default_name(b) == "test_area_learn_git"
+    assert sr.default_name(Path.home().resolve() / "rc-test") == "rc-test"
+
+
+def test_stop_by_dir_only(env):
+    write_cfg(env, work_dirs=[str(env["repo"])])
+    mine = session_of(env, "normal")
+    (env["tmp"] / "sessions").write_text(f"{mine}\t{env['repo']}\n")
+    assert start("--stop", "--dir", str(env["repo"])) == 0
+    assert f"kill-session -t {mine}" in env["tmux_log"].read_text()

@@ -70,13 +70,13 @@ scripts/start-remote.sh --level readonly --dir ~/Desktop/learn_git
 其他：
 ```bash
 scripts/start-remote.sh --status                 # 列出正在跑的远端 session
-scripts/start-remote.sh --stop --name learn_git  # 停止（--all 全部停止）
+scripts/start-remote.sh --stop --name Desktop_learn_git  # 停止（也可用 --dir；--all 全部停止）
 # 在电脑上看它在做什么：--status 会印出 tmux 指令（离开：Ctrl+B 再按 D）
 ```
 
 ## 三、在手机上
 
-1. 打开 Claude app，找名称是资料夹名称（例如 `learn_git`）的 session（可能在 Code 区块）
+1. 打开 Claude app，找名称是「上一层资料夹_资料夹名」的 session，例如 `Desktop_learn_git`、`test_area_learn_git`（`--status` 会列出名称和路径）
 2. 像平常一样打字，例如 `list files in this folder`
 3. 跳出 **允许 / 拒绝** 时，看清楚完整指令再按
 4. 危险操作（`git push`、`sudo`、`rm -rf`、读 `.env` 等）会直接被拒绝，Claude 会看到 `[remote-guard]` 的原因
@@ -84,7 +84,7 @@ scripts/start-remote.sh --stop --name learn_git  # 停止（--all 全部停止�
 ## 四、回到电脑前
 
 ```bash
-scripts/start-remote.sh --stop --name learn_git   # 结束远端 session
+scripts/start-remote.sh --stop --name Desktop_learn_git   # 结束远端 session
 git diff                  # 检查改了哪些档案
 ```
 
