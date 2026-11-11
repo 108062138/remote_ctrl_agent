@@ -243,6 +243,7 @@ def test_stop_and_status(env, capsys):
     out = capsys.readouterr().out
     assert f"{sr.default_name(env['repo'].resolve())}　readonly　{env['repo']}" in out   # 名称、等级、完整路径
     assert "unrelated" not in out
+    assert f"--stop --dir {env['repo']}" in out                                       # 建议用路径停止（一定不会重复）
     assert start("--stop", "--boot") == 0
     assert f"kill-session -t {mine}" in env["tmux_log"].read_text()
     assert "rc-other" not in env["tmux_log"].read_text().split("kill-session")[-1]

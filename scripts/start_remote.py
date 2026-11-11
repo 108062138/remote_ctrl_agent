@@ -362,7 +362,8 @@ def status(args) -> int:
         name, _, level = parse_session(s)
         print(f"● {name}　{level}　{path or '?'}")
         print(f"    接上去看：{attach_hint(s)}")
-        print(f"    停止：scripts/start-remote.sh --stop --name {name}")
+        stop_by = f"--dir {shlex.quote(path)}" if path else f"--name {name}"
+        print(f"    停止：scripts/start-remote.sh --stop {stop_by}")
     return 0
 
 
