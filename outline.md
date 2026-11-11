@@ -3,7 +3,7 @@
 支持 **Ubuntu 和 macOS**，同一份设定两边都能用。
 练手 side project。
 
-相关文件：使用说明见 [README.md](README.md)，进度见 [milestone.md](milestone.md)，踩坑记录见 [error.md](error.md)，架构图见 [docs/architecture.md](docs/architecture.md)（PNG：[docs/architecture.png](docs/architecture.png)）。
+相关文件：使用说明见 [README.md](README.md)，进度见 [milestone.md](milestone.md)，踩坑记录见 [error.md](error.md)，架构图见 [docs/architecture.md](docs/architecture.md)，贡献 Claude Code 的讨论见 [docs/contribution-plan.md](docs/contribution-plan.md)（PNG：[docs/architecture.png](docs/architecture.png)）。
 
 > 2026-11-10 方向调整：原本用 Telegram bot，改用 Claude Code 内建的 Remote Control。
 > 原因：官方账号登录（可开两步验证）、没有 bot token 会外泄、权限确认是内建的、要维护的代码少很多。

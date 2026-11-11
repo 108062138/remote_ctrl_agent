@@ -23,6 +23,7 @@
 | 4 | Audit log + git checkpoint | ✅ Ubuntu + Mac |
 | 5 | 一直在线 + 安全等级：启动脚本、systemd / launchd、防休眠 | 🟡 readonly 实测通过（Ubuntu + Mac） |
 | 6 | v0.2 功能 | ⬜ |
+| 7 | 贡献 Claude Code（plugin / 功能建议） | 💬 讨论中，见 docs/contribution-plan.md |
 
 > 原本的 M7「GUI 美化」取消：介面就是 Claude app。
 
@@ -251,6 +252,9 @@ python3 scripts/preflight.py                     # 两台都要全部没有 ❌
 - [ ] 电脑：手动 kill claude → 自动重启
 - [ ] 安装服务后重新登录 → 手机看得到预设 session（使用者决定何时安装）
 - [x] Mac（2026-11-11）：启动与手机测试正常
+
+## M7 贡献 Claude Code（讨论中，未决定）⬜
+目标：把这个专案的成果贡献给 Claude Code（plugin、功能建议、范例）。讨论纪录、差距和建议顺序见 [docs/contribution-plan.md](docs/contribution-plan.md)。
 
 ## M6 v0.2 ⬜
 多项目多 session、健康检查与通知、log 轮替（细节见 outline.md）
