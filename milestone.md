@@ -25,7 +25,7 @@
 | 6 | v0.2 功能 | ⬜ |
 | 7 | 贡献 Claude Code（plugin / 功能建议） | 💬 讨论中，见 docs/contribution-plan.md |
 
-> 原本的 M7「GUI 美化」取消：介面就是 Claude app。
+> 最早规划的「GUI 美化」阶段已取消（介面就是 Claude app）；现在的 M7 是「贡献 Claude Code」。
 
 ---
 
