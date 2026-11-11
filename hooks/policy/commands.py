@@ -73,6 +73,11 @@ def deny_by_name(name: str, args: list[str]) -> Decision | None:
     if (name, first) in (("twine", ["upload"]), ("cargo", ["publish"]), ("gem", ["push"]),
                          ("docker", ["push"]), ("docker", ["login"]), ("poetry", ["publish"])):
         return Decision(DENY, "远端模式禁止发布 / 上传")
+    # 间接执行 claude（npx @anthropic-ai/claude-code、pnpm dlx ...）：和直接执行 claude 一样禁止
+    runner = name in ("npx", "bunx", "pnpx") or (name in ("pnpm", "yarn", "bun") and args[:1] == ["dlx"]) \
+        or (name == "npm" and args[:1] in (["exec"], ["x"]))
+    if runner and any(os.path.basename(a).lower() in ("claude", "claude-code") or "claude-code" in a for a in args):
+        return Decision(DENY, "远端模式禁止间接执行 claude（会开一个没有安全层的新 session）")
     if name == "hash" and "-p" in args:
         return Decision(DENY, "远端模式禁止 hash -p（把指令名称指到别的程式）")
     return None

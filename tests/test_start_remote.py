@@ -432,3 +432,13 @@ def test_stop_by_dir_only(env):
     (env["tmp"] / "sessions").write_text(f"{mine}\t{env['repo']}\n")
     assert start("--stop", "--dir", str(env["repo"])) == 0
     assert f"kill-session -t {mine}" in env["tmux_log"].read_text()
+
+
+def test_render_adds_machine_deny_rules():
+    import render_settings
+    import platform_utils as pu
+    deny = render_settings.render("/x/python")["permissions"]["deny"]
+    cfg = render_settings._rule_path(pu.config_dir())
+    assert f"Read({cfg}/**)" in deny and f"Edit({cfg}/**)" in deny
+    assert f"Edit({render_settings._rule_path(ROOT)}/**)" in deny
+    assert len(deny) == len(set(deny))

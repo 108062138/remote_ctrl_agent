@@ -231,6 +231,8 @@ python3 scripts/preflight.py                     # 两台都要全部没有 ❌
 
 **使用回馈（2026-11-11）**：两个 `learn_git` 资料夹在 tmux 和手机上都叫 `learn_git`，分不出来 → 预设名称改成「上一层资料夹_资料夹名」（`Desktop_learn_git`、`test_area_learn_git`），`--status` 列出完整路径，`--stop` 也可以用 `--dir`
 
+**2026-11-11 补强**（另一个 session 发现，已整合）：远端读不到设定资料夹（orgId）、不能执行 `claude`（含 `npx` 等间接执行）；设定资料夹与安全层 repo 的 deny 规则改由 `render_settings.py` 自动产生。测试共 322 个
+
 **注意**
 - Ubuntu 的 user service 在「登录后」才跑，登出就停；锁屏没关系。要不登录也跑需要 `loginctl enable-linger`（未做）
 - Mac 重开机后要先登录；合盖仍会睡
@@ -239,7 +241,7 @@ python3 scripts/preflight.py                     # 两台都要全部没有 ❌
 **学到的概念**：systemd user service（`oneshot` + `RemainAfterExit`）、launchd LaunchAgent、`systemd-inhibit` / `caffeinate`、tmux 背景 session、重启的退避与上限
 
 **验证**
-- [x] 单元测试全过（全部 310 个）
+- [x] 单元测试全过（全部 322 个）
 - [x] 真实环境 dry-run（暂时设定档）：preflight 通过、未 commit 会提醒、白名单外被挡、`--boot` 用预设值、服务档内容正确、`systemd-inhibit` 不需要密码
 - [x] code review：10 个全修，每个都有测试
 - [ ] 手机：`--level readonly` 启动 → 读档可以、改档直接被拒绝（不会问）

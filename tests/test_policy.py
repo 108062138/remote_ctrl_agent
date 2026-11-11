@@ -275,3 +275,14 @@ def test_config_dir_cannot_be_read(ctx):
 @pytest.mark.parametrize("cmd", ["claude auth status", "claude -p hi", "claude --version", "/usr/local/bin/claude auth status"])
 def test_claude_cli_denied(cmd, ctx):
     assert bash(cmd, ctx).level == DENY, cmd
+
+
+@pytest.mark.parametrize("cmd", ["npx @anthropic-ai/claude-code -p hi", "npx claude auth status",
+                                 "pnpm dlx @anthropic-ai/claude-code", "npm exec claude -- -p hi",
+                                 "bunx @anthropic-ai/claude-code"])
+def test_indirect_claude_denied(cmd, ctx):
+    assert bash(cmd, ctx).level == DENY, cmd
+
+
+def test_npx_other_packages_still_ask(ctx):
+    assert bash("npx prettier --check .", ctx).level == ASK

@@ -40,8 +40,27 @@ def hook_command(python: str, script: Path) -> str:
     return f"{shlex.quote(python)} {shlex.quote(str(script))}"
 
 
+def _rule_path(path: Path) -> str:
+    """权限规则里的路径：在家目录下就写成 ~/...。"""
+    home = Path.home().resolve()
+    path = path.resolve()
+    return "~/" + str(path.relative_to(home)) if home in path.parents else str(path)
+
+
+def machine_deny_rules() -> list[str]:
+    """和这台电脑有关的拒绝规则（路径依平台不同，不能写死在模板里）。
+
+    - 本机设定资料夹（含可信账号 orgId）：远端不能读也不能改
+    - 产生这份设定的 repo（安全层本身）：远端不能改
+    """
+    cfg = _rule_path(pu.config_dir())
+    return [f"Read({cfg}/**)", f"Edit({cfg}/**)", f"Edit({_rule_path(ROOT)}/**)"]
+
+
 def render(python: str) -> dict:
     data = json.loads(TEMPLATE.read_text())
+    deny = data["permissions"]["deny"]
+    deny.extend(r for r in machine_deny_rules() if r not in deny)
     for groups in data["hooks"].values():
         for group in groups:
             for h in group["hooks"]:

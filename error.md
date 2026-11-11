@@ -16,6 +16,24 @@
 
 ---
 
+### [2026-11-11] 两个 session 同时改 repo；远端可以读到 orgId、可以执行 claude
+- **阶段**：M5
+- **平台**：Ubuntu
+- **现象**：
+  1. 另一个 Claude session 在 `~/Desktop/test_area/remote_ctrl_agent`（另一份 clone）发现：远端可以 `cat ~/.config/remote-ctrl/config.json` 读到可信账号 orgId；也可以执行 `claude auth status`（显示 orgId）、`claude -p`（开一个没有安全层的新 session）
+  2. 它修了程式（commit `6f41797`），并**手动**在 `~/.config/remote-ctrl/remote-settings.json` 加了 3 条 deny。但这个档案是 `render_settings.py` 产生的，重新产生就会被盖掉
+  3. `npx @anthropic-ai/claude-code` 这类间接执行 claude 的写法仍然是 Ask
+- **原因**：设定资料夹之前只列为「受保护」（不能改，但能读）；没想到 claude 指令本身就是绕过安全层的方法
+- **修法**：
+  1. 把 `6f41797` fast-forward 进开发用的这份（没有冲突）：设定资料夹改成「机密」（读写都挡）、禁止 `claude` 指令
+  2. 手动加的规则改由 `render_settings.py` 自动产生（路径依平台决定）：设定资料夹 Read / Edit、产生设定的那份 repo Edit。`test_area` 那份不在任何工作资料夹里，安全层本来就挡写入，不需要写死
+  3. `npx` / `bunx` / `pnpm dlx` / `npm exec` 执行 claude → Deny
+  4. 测试共 322 个
+- **教训**：
+  - 两份 clone、两个 session 同时改会搞混：只在一份开发，另一份用 `git pull` 同步
+  - 产生出来的档案不要手动改，要改产生它的模板或程式
+  - 「能开新 session 的指令」本身就是绕过安全层的方法，要和 sudo 一样对待
+
 ### [2026-11-10] M5 code review：启动脚本与开机服务的 10 个问题
 - **阶段**：M5
 - **平台**：都有（3、4、8、9 主要是 Ubuntu）
