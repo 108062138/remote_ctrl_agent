@@ -51,6 +51,8 @@ DENY_NAMES = {
     "alias": "定义别名", "trap": "设定之后会自动执行的指令", "enable": "载入 shell 扩充",
     # 机密 / 系统控制
     "security": "读取钥匙圈", "secret-tool": "读取钥匙圈", "osascript": "控制 macOS 应用程式",
+    # claude auth status 会显示 orgId；claude -p 会开一个没有 remote-guard 的新 session
+    "claude": "显示登录资料或开启没有安全层的新 session",
     # 部署 / 云端
     "vercel": "部署", "netlify": "部署", "firebase": "部署", "fly": "部署", "flyctl": "部署",
     "heroku": "部署", "kubectl": "操作 Kubernetes", "helm": "操作 Kubernetes", "terraform": "改云端资源",

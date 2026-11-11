@@ -257,3 +257,21 @@ def test_huge_glob_finishes_fast(ctx):
     d = bash("ls /**/no-such-file-anywhere*", ctx)
     assert time.monotonic() - start < 5
     assert d.level in (ASK, DENY)
+
+
+# --- 可信账号 orgId：config_dir 远端连读都不行 ------------------------------------
+
+def test_config_dir_cannot_be_read(ctx):
+    cfg = ctx.config_dir / "config.json"
+    cfg.parent.mkdir(parents=True, exist_ok=True)
+    cfg.write_text('{"trusted_org_id": "org-1"}')
+    assert policy.decide("Read", {"file_path": str(cfg)}, ctx).level == DENY
+    assert policy.decide("Grep", {"pattern": "org", "path": str(ctx.config_dir)}, ctx).level == DENY
+    for cmd in (f"cat {cfg}", f"head {cfg}", f"grep org {cfg}", f"grep -r org {ctx.config_dir}",
+                f"ls {ctx.config_dir}"):
+        assert bash(cmd, ctx).level == DENY, cmd
+
+
+@pytest.mark.parametrize("cmd", ["claude auth status", "claude -p hi", "claude --version", "/usr/local/bin/claude auth status"])
+def test_claude_cli_denied(cmd, ctx):
+    assert bash(cmd, ctx).level == DENY, cmd

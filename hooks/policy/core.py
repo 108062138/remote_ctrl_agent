@@ -65,7 +65,8 @@ def make_context(work_dir, *, cwd=None, home=None, tool_root=None, config_dir=No
     tool_root = real(tool_root or Path(__file__).resolve().parents[2])
     config_dir = real(config_dir or home / ".config" / "remote-ctrl")
     log_dir = real(log_dir or home / ".local" / "state" / "remote-ctrl")
-    sensitive = tuple(real(home / p) for p in SENSITIVE_HOME_PATHS)
+    # config_dir 存了可信账号 orgId：远端连读都不行（不只是不能改）
+    sensitive = tuple(real(home / p) for p in SENSITIVE_HOME_PATHS) + (config_dir,)
     protected = tuple(real(p) for p in (
         # 安全层本身：不能被远端修改或关掉
         tool_root / "hooks", tool_root / "deploy", tool_root / "scripts",
