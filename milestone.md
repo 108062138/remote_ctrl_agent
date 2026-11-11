@@ -21,7 +21,7 @@
 | 2 | Remote Control 跑通（Ubuntu + Mac）+ preflight 检查 | ✅ Ubuntu + Mac |
 | 3 | 安全层：settings + policy + hook | ✅ Ubuntu + Mac |
 | 4 | Audit log + git checkpoint | ✅ Ubuntu + Mac |
-| 5 | 一直在线 + 安全等级：启动脚本、systemd / launchd、防休眠 | 🟡 代码与 review 完成，待手机实测 |
+| 5 | 一直在线 + 安全等级：启动脚本、systemd / launchd、防休眠 | 🟡 readonly 实测通过（Ubuntu + Mac） |
 | 6 | v0.2 功能 | ⬜ |
 
 > 原本的 M7「GUI 美化」取消：介面就是 Claude app。
@@ -193,7 +193,7 @@ python3 scripts/preflight.py                     # 两台都要全部没有 ❌
 - [x] 手机（2026-11-10，`test_area/learn_git`）：每个 prompt 都有还原点；`restore.py log` 看得到每个动作；不是 git repo 时正确提醒「没有还原点」
 - [x] Mac（2026-11-11）：`render_settings.py`，preflight 通过
 
-## M5 一直在线 + 安全等级 🟡（2026-11-10 代码与 review 完成，待手机实测）
+## M5 一直在线 + 安全等级 🟡（2026-11-11 readonly 手机实测通过；normal 用启动脚本、自动重启、开机服务待测）
 **目标**：一行指令启动远端 session（先选安全等级和资料夹），挂了会重启、电脑不睡；可选登录后自动启动。
 
 **事前决定（2026-11-10，出门吃饭前问好）**
@@ -245,11 +245,12 @@ python3 scripts/preflight.py                     # 两台都要全部没有 ❌
 - [x] 单元测试全过（全部 324 个）
 - [x] 真实环境 dry-run（暂时设定档）：preflight 通过、未 commit 会提醒、白名单外被挡、`--boot` 用预设值、服务档内容正确、`systemd-inhibit` 不需要密码
 - [x] code review：10 个全修，每个都有测试
-- [ ] 手机：`--level readonly` 启动 → 读档可以、改档直接被拒绝（不会问）
+- [x] 手机（2026-11-11，Ubuntu + Mac）：`--level readonly` 启动 → 读档放行（12 次）、组合指令直接被拒绝（不会问）
 - [ ] 手机：`--level normal` 启动 → 和 M3 / M4 一样
-- [ ] 电脑：`--stop` 后手机上 session 消失；手动 kill claude → 自动重启
+- [x] 电脑：`--status` 列出名称和路径、`--stop` 正常（新名称 `Desktop_learn_git` / `test_area_learn_git`）
+- [ ] 电脑：手动 kill claude → 自动重启
 - [ ] 安装服务后重新登录 → 手机看得到预设 session（使用者决定何时安装）
-- [ ] Mac：同上
+- [x] Mac（2026-11-11）：启动与手机测试正常
 
 ## M6 v0.2 ⬜
 多项目多 session、健康检查与通知、log 轮替（细节见 outline.md）
