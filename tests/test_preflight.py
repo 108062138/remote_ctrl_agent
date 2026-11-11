@@ -251,3 +251,18 @@ def test_preflight_never_reads_dotenv():
     sources = [PROJECT / "platform_utils.py", *sorted((PROJECT / "preflight").glob("*.py"))]
     src = "".join(p.read_text() for p in sources)
     assert "dotenv" not in src and '".env"' not in src
+
+
+def test_shell_path_quotes_spaces():
+    assert pu.shell_path("/Users/me/Library/Application Support/remote-ctrl/config.json") == \
+        "'/Users/me/Library/Application Support/remote-ctrl/config.json'"
+    assert pu.shell_path("/home/me/.config/remote-ctrl/config.json") == "/home/me/.config/remote-ctrl/config.json"
+
+
+def test_show_config_masks_org_and_quotes_path(monkeypatch, tmp_path, capsys):
+    path = tmp_path / "Application Support" / "config.json"
+    config_store.save_local_config({"trusted_org_id": "be75c303-9adb-405f", "work_dirs": ["~/x"]}, path)
+    monkeypatch.setattr(config_store, "config_path", lambda: path)
+    assert cli.main(["--config"]) == 0
+    out = capsys.readouterr().out
+    assert f"nano '{path}'" in out and "be75c303…" in out and "9adb-405f" not in out

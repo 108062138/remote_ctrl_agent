@@ -16,6 +16,14 @@
 
 ---
 
+### [2026-11-11] Mac：设定档路径有空白，复制后指令坏掉
+- **阶段**：M5（Mac 实测）
+- **平台**：macOS
+- **现象**：`--trust` 印出 `已写入 /Users/popo/Library/Application Support/remote-ctrl/config.json`，复制去 `cat` 变成两个路径：`cat: /Users/popo/Library/Application: No such file or directory`
+- **原因**：Mac 的 `Application Support` 有空白，程式印路径时没加引号
+- **修法**：新增 `platform_utils.shell_path()`，所有印给人看的路径都用 `shlex.quote` 加引号；新增 `preflight.py --config` 印出设定档位置、编辑指令和内容（orgId 只显示开头）；README 加上 Mac 要加引号的说明
+- **教训**：印给使用者复制的路径一定要考虑空白；在 Ubuntu 上开发看不出来，要两个平台都测
+
 ### [2026-11-11] 两个 session 同时改 repo；远端可以读到 orgId、可以执行 claude
 - **阶段**：M5
 - **平台**：Ubuntu

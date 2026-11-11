@@ -60,7 +60,7 @@ def check_work_dirs(dirs: object) -> list[Check]:
     """每个工作目录都要存在，而且是 git repo（M4 的还原点要用 git）。"""
     if not dirs:
         return [Check("工作目录", WARN, "还没设定 work_dirs",
-                      f"之后在 {config_store.config_path()} 加上 \"work_dirs\": [...]")]
+                      f"之后编辑 {pu.shell_path(config_store.config_path())}，加上 \"work_dirs\": [...]")]
     if not isinstance(dirs, list) or not all(isinstance(d, str) for d in dirs):
         return [Check("工作目录", FAIL, "work_dirs 必须是字串清单", '例如 "work_dirs": ["~/proj"]')]
     from preflight import commands
@@ -90,7 +90,7 @@ def check_defaults(cfg: dict) -> Check:
     level, d = cfg.get("default_level"), cfg.get("default_dir")
     if not level and not d:
         return Check(name, WARN, "还没设定（手动启动不需要；开机自动启动才需要）",
-                     f'在 {config_store.config_path()} 加上 "default_level": "readonly", "default_dir": "..."')
+                     f'编辑 {pu.shell_path(config_store.config_path())}，加上 "default_level": "readonly", "default_dir": "..."')
     if level not in pu.LEVELS:
         return Check(name, FAIL, f"default_level 只能是 {' / '.join(pu.LEVELS)}：{level!r}", "修正 config.json")
     if not isinstance(d, str) or not d:

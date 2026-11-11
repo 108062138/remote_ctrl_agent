@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shlex
 import shutil
 import sys
 from pathlib import Path
@@ -102,3 +103,8 @@ def in_whitelist(path, work_dirs) -> Path | None:
             if p == base or base in p.parents:
                 return p
     return None
+
+
+def shell_path(path) -> str:
+    """印给人看的路径：有空白（例如 Mac 的 Application Support）时自动加引号，可以直接复制贴上。"""
+    return shlex.quote(str(path))

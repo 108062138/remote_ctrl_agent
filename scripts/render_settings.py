@@ -76,7 +76,7 @@ def main() -> int:
         print("❌ 这个 python 没有 bashlex。请先 conda activate remote-ctrl-agent 再执行。")
         return 1
     path = config_store.save_local_config(render(sys.executable), settings_path())
-    print(f"✅ 已产生 {path}")
+    print(f"✅ 已产生 {pu.shell_path(path)}")
     print(f"   安全层 hook：{hook_command(sys.executable, GUARD)}")
     print(f"   还原点 hook：{hook_command(sys.executable, CHECKPOINT)}")
     return 0

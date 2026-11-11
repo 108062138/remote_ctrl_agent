@@ -30,7 +30,11 @@
    conda activate remote-ctrl-agent
    python scripts/render_settings.py
    ```
-4. 设定允许远端操作的资料夹（白名单）。编辑本机设定档 `config.json`（Ubuntu `~/.config/remote-ctrl/`，Mac `~/Library/Application Support/remote-ctrl/`），加上：
+4. 设定允许远端操作的资料夹（白名单）。先看设定档在哪（会印出可以直接复制的编辑指令）：
+   ```bash
+   python3 scripts/preflight.py --config
+   ```
+   Mac 的路径有空白（`Application Support`），自己打指令时要加引号：`nano "$HOME/Library/Application Support/remote-ctrl/config.json"`。在设定档里加上：
    ```json
    "work_dirs": ["~/Desktop/learn_git"],
    "default_dir": "~/Desktop/learn_git",

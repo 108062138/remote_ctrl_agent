@@ -94,21 +94,21 @@ def install(args) -> int:
     cfg, err = config_store.read_local_config()
     problem = err or check_defaults(cfg)
     if problem:
-        print(f"❌ {problem}\n   设定档：{config_store.config_path()}")
+        print(f"❌ {problem}\n   设定档：{pu.shell_path(config_store.config_path())}")
         return 1
     content = render(sys.executable, service_path_env(), pu.log_dir())
     path = service_path(Path.home())
     if args.dry_run:
-        print(f"（dry-run）会写入 {path}：\n")
+        print(f"（dry-run）会写入 {pu.shell_path(path)}：\n")
         print(content)
         return 0
     path.parent.mkdir(parents=True, exist_ok=True)
     pu.log_dir().mkdir(mode=0o700, parents=True, exist_ok=True)
     path.write_text(content)
-    print(f"✅ 已写入 {path}")
+    print(f"✅ 已写入 {pu.shell_path(path)}")
     if pu.IS_MAC:
         print("下次登录 Mac 时会自动启动。想现在就启动：")
-        print(f"  launchctl bootstrap gui/{os.getuid()} {path}")
+        print(f"  launchctl bootstrap gui/{os.getuid()} {pu.shell_path(path)}")
     else:
         ok = run(["systemctl", "--user", "daemon-reload"]) and run(["systemctl", "--user", "enable", UNIT_NAME])
         if not ok:
@@ -124,7 +124,7 @@ def install(args) -> int:
 def uninstall(args) -> int:
     path = service_path(Path.home())
     if args.dry_run:
-        print(f"（dry-run）会停用并删除 {path}")
+        print(f"（dry-run）会停用并删除 {pu.shell_path(path)}")
         return 0
     if pu.IS_MAC:
         run(["launchctl", "bootout", f"gui/{os.getuid()}", str(path)])
@@ -132,7 +132,7 @@ def uninstall(args) -> int:
         run(["systemctl", "--user", "disable", "--now", UNIT_NAME])
     if path.exists():
         path.unlink()
-        print(f"✅ 已删除 {path}")
+        print(f"✅ 已删除 {pu.shell_path(path)}")
     if not pu.IS_MAC:
         run(["systemctl", "--user", "daemon-reload"])
     return 0

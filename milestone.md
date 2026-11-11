@@ -18,9 +18,9 @@
 |---|---|---|
 | 0 | 规划：写 outline | ✅ |
 | 1 | Telegram echo bot + 白名单 | 🗄 封存 |
-| 2 | Remote Control 跑通（Ubuntu + Mac）+ preflight 检查 | 🟡 Ubuntu 完成，Mac 待测 |
-| 3 | 安全层：settings + policy + hook | ✅ Ubuntu 手机实测通过（Mac 待测） |
-| 4 | Audit log + git checkpoint | ✅ Ubuntu 手机实测通过（Mac 待测） |
+| 2 | Remote Control 跑通（Ubuntu + Mac）+ preflight 检查 | ✅ Ubuntu + Mac |
+| 3 | 安全层：settings + policy + hook | ✅ Ubuntu + Mac |
+| 4 | Audit log + git checkpoint | ✅ Ubuntu + Mac |
 | 5 | 一直在线 + 安全等级：启动脚本、systemd / launchd、防休眠 | 🟡 代码与 review 完成，待手机实测 |
 | 6 | v0.2 功能 | ⬜ |
 
@@ -106,9 +106,8 @@ python3 scripts/preflight.py                     # 两台都要全部没有 ❌
 **验证**
 - [x] Ubuntu：preflight 全部 ✅（2026-11-10）
 - [x] Ubuntu：手机 Claude app 连上 `claude --remote-control test`，测试正常（2026-11-10，在空的 `~/rc-test` 里测，因为安全层还没做）
-- [ ] Mac：preflight 全部 ✅
-- [ ] Mac：手机测试正常
-- [ ] 手机上两台的 session 名称分得出来
+- [x] Mac（2026-11-11）：preflight 通过、手机测试正常
+- [x] 手机上两台的 session 名称分得出来（Remote Control 名称前缀是主机名称）
 
 ## M3 安全层 ✅（2026-11-10 手机实测通过；Mac 待测）
 **目标**：远端 session 里，aggressive 行为直接拒绝；本地 session 不受影响。
@@ -162,7 +161,7 @@ python3 scripts/preflight.py                     # 两台都要全部没有 ❌
 - [x] 手机：组合指令（`ls && rm -rf a.txt`）→ 仍拒绝
 - [x] 手机：改工作目录里的档案（Write / Edit / git commit）→ 出现批准提示
 - [ ] 电脑：一般的 `claude`（没带 `--settings`）→ 不受影响
-- [ ] Mac：`render_settings.py` + preflight 通过
+- [x] Mac（2026-11-11）：`render_settings.py` + preflight 通过
 
 ## M4 Audit log + git checkpoint ✅（2026-11-10 手机实测通过；Mac 待测）
 **目标**：知道远端做过什么，出问题时能还原。
@@ -192,7 +191,7 @@ python3 scripts/preflight.py                     # 两台都要全部没有 ❌
 - [x] 实际跑：hook 建立还原点 → 改坏档案、新增档案 → `restore.py diff` 看得到 → `restore` 还原成功
 - [x] code review：10 个全修，每个都有测试
 - [x] 手机（2026-11-10，`test_area/learn_git`）：每个 prompt 都有还原点；`restore.py log` 看得到每个动作；不是 git repo 时正确提醒「没有还原点」
-- [ ] Mac：重跑 `render_settings.py`，preflight 通过
+- [x] Mac（2026-11-11）：`render_settings.py`，preflight 通过
 
 ## M5 一直在线 + 安全等级 🟡（2026-11-10 代码与 review 完成，待手机实测）
 **目标**：一行指令启动远端 session（先选安全等级和资料夹），挂了会重启、电脑不睡；可选登录后自动启动。
@@ -233,6 +232,8 @@ python3 scripts/preflight.py                     # 两台都要全部没有 ❌
 
 **2026-11-11 补强**（另一个 session 发现，已整合）：远端读不到设定资料夹（orgId）、不能执行 `claude`（含 `npx` 等间接执行）；设定资料夹与安全层 repo 的 deny 规则改由 `render_settings.py` 自动产生。测试共 322 个
 
+**Mac 实测（2026-11-11）**：可以用。主要问题是设定档路径 `~/Library/Application Support/...` 有空白，复制程式印出的路径会坏掉 → 所有印出的路径自动加引号；新增 `preflight.py --config` 显示设定档位置（可直接复制）和内容
+
 **注意**
 - Ubuntu 的 user service 在「登录后」才跑，登出就停；锁屏没关系。要不登录也跑需要 `loginctl enable-linger`（未做）
 - Mac 重开机后要先登录；合盖仍会睡
@@ -241,7 +242,7 @@ python3 scripts/preflight.py                     # 两台都要全部没有 ❌
 **学到的概念**：systemd user service（`oneshot` + `RemainAfterExit`）、launchd LaunchAgent、`systemd-inhibit` / `caffeinate`、tmux 背景 session、重启的退避与上限
 
 **验证**
-- [x] 单元测试全过（全部 322 个）
+- [x] 单元测试全过（全部 324 个）
 - [x] 真实环境 dry-run（暂时设定档）：preflight 通过、未 commit 会提醒、白名单外被挡、`--boot` 用预设值、服务档内容正确、`systemd-inhibit` 不需要密码
 - [x] code review：10 个全修，每个都有测试
 - [ ] 手机：`--level readonly` 启动 → 读档可以、改档直接被拒绝（不会问）

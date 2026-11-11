@@ -80,7 +80,7 @@ def cmd_restore(args) -> int:
 def cmd_log(args) -> int:
     records = audit.read(pu.log_dir(), args.tail)
     if not records:
-        print(f"还没有纪录（{pu.log_dir() / audit.LOG_NAME}）")
+        print(f"还没有纪录（{pu.shell_path(pu.log_dir() / audit.LOG_NAME)}）")
         return 0
     for r in records:
         t = r.get("time", "?").replace("T", " ")

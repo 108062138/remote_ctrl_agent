@@ -4,6 +4,7 @@
   python3 scripts/preflight.py --json          输出 JSON（给之后的 start-remote.sh 用）
   python3 scripts/preflight.py --show-org      显示这台电脑登录的 email、orgId
   python3 scripts/preflight.py --trust ORG_ID  设定这台电脑唯一信任的账号
+  python3 scripts/preflight.py --config        显示本机设定档的位置（可直接复制）和内容
 """
 
 from __future__ import annotations
@@ -76,7 +77,28 @@ def trust(org_id: str) -> int:
         return 1
     cfg["trusted_org_id"] = org_id
     cfg.setdefault("work_dirs", [])
-    print(f"✅ 已写入 {config_store.save_local_config(cfg)}")
+    path = config_store.save_local_config(cfg)
+    print(f"✅ 已写入 {pu.shell_path(path)}")
+    print(f"   之后要加白名单：nano {pu.shell_path(path)}（或用 --config 看内容）")
+    return 0
+
+
+def show_config() -> int:
+    """印出本机设定档的位置（可以直接复制）和内容（orgId 只显示开头）。"""
+    path = config_store.config_path()
+    print(f"设定档：{pu.shell_path(path)}")
+    print(f"编辑：  nano {pu.shell_path(path)}\n")
+    cfg, err = config_store.read_local_config()
+    if err:
+        print(f"❌ {err}")
+        return 1
+    if not path.is_file():
+        print("（还没有设定档，先执行 --trust）")
+        return 0
+    shown = dict(cfg)
+    if isinstance(shown.get("trusted_org_id"), str):
+        shown["trusted_org_id"] = shown["trusted_org_id"][:8] + "…"
+    print(json.dumps(shown, indent=2, ensure_ascii=False))
     return 0
 
 
@@ -85,8 +107,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--json", action="store_true", help="输出 JSON")
     ap.add_argument("--show-org", action="store_true", help="显示这台电脑目前登录的账号")
     ap.add_argument("--trust", metavar="ORG_ID", help="设定这台电脑唯一信任的账号 orgId")
+    ap.add_argument("--config", action="store_true", help="显示本机设定档的位置和内容")
     args = ap.parse_args(argv)
 
+    if args.config:
+        return show_config()
     if args.show_org:
         return show_org()
     if args.trust:
